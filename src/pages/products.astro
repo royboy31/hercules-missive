@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProductCatalog from '../components/ProductCatalog';
+
+const email = Astro.url.searchParams.get('email') || '';
+const region = Astro.url.searchParams.get('region') || '';
+---
+
+<BaseLayout title="Product Catalog — Hercules CRM">
+  <header class="bg-[#253461] border-b border-[#1c2847] px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href={email ? `/?email=${encodeURIComponent(email)}` : '/'} class="flex items-center gap-3 hover:opacity-90 transition-opacity">
+        <div class="w-8 h-8 bg-[#10c99e] rounded-lg flex items-center justify-center text-white font-bold text-sm font-[Jost,sans-serif]">H</div>
+        <h1 class="text-lg font-semibold text-white font-[Jost,sans-serif]">Hercules CRM</h1>
+      </a>
+      <span class="text-gray-400 text-sm ml-2">/ Product Catalog</span>
+    </div>
+    {email && (
+      <div class="text-sm text-gray-300">{email}</div>
+    )}
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <ProductCatalog initialRegion={region} customerEmail={email} client:load />
+  </main>
+</BaseLayout>

@@ -1,29 +1,29 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import CustomerIdentification from '../components/CustomerIdentification';
 
 const email = Astro.url.searchParams.get('email') || '';
 ---
 
 <BaseLayout title={email ? `${email} — Hercules CRM` : 'Hercules CRM'}>
-  <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+  <header class="bg-[#253461] border-b border-[#1c2847] px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="w-8 h-8 bg-[#c8102e] rounded-lg flex items-center justify-center text-white font-bold text-sm">H</div>
-      <h1 class="text-lg font-semibold">Hercules CRM</h1>
+      <div class="w-8 h-8 bg-[#10c99e] rounded-lg flex items-center justify-center text-white font-bold text-sm font-[Jost,sans-serif]">H</div>
+      <h1 class="text-lg font-semibold text-white font-[Jost,sans-serif]">Hercules CRM</h1>
     </div>
-    {email && (
-      <div class="text-sm text-gray-500">{email}</div>
-    )}
+    <div class="flex items-center gap-4">
+      <nav class="flex items-center gap-4">
+        <a href="/products" class="text-sm text-gray-300 hover:text-white transition-colors">Products</a>
+      </nav>
+      {email && (
+        <span class="text-sm text-gray-300 ml-2">{email}</span>
+      )}
+    </div>
   </header>
 
   <main class="max-w-5xl mx-auto px-6 py-8">
     {email ? (
-      <div>
-        <p class="text-gray-500 text-sm mb-2">Customer lookup</p>
-        <div class="bg-white rounded-xl border border-gray-200 p-6">
-          <p class="text-lg font-medium">{email}</p>
-          <p class="text-gray-400 mt-2">Customer identification coming next...</p>
-        </div>
-      </div>
+      <CustomerIdentification email={email} client:load />
     ) : (
       <div class="text-center py-20">
         <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">

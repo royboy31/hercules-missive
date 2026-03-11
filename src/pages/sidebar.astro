@@ -1,11 +1,6 @@
 ---
 import '../styles/global.css';
-
-interface Props {
-  title?: string;
-}
-
-const { title = 'Hercules CRM' } = Astro.props;
+import SidebarApp from '../components/SidebarApp';
 ---
 
 <html lang="en">
@@ -13,12 +8,14 @@ const { title = 'Hercules CRM' } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>{title}</title>
+    <title>Hercules CRM</title>
+    <link href="https://integrations.missiveapp.com/missive.css" rel="stylesheet" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet" />
+    <script src="https://integrations.missiveapp.com/missive.js" is:inline></script>
   </head>
-  <body class="bg-gray-50 text-[#253461] min-h-screen font-[Roboto,sans-serif]">
-    <slot />
+  <body class="bg-white text-[#253461] min-h-screen font-[Roboto,sans-serif]">
+    <SidebarApp client:load />
   </body>
 </html>

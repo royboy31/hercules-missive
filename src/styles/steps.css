@@ -1,0 +1,1432 @@
+/* Product Configurator Steps - Pearl WC Steps Variation Styling */
+
+/* Tooltip styling */
+.offer-table tr td .kd-product-tooltip {
+    background: #253461 !important;
+    width: 320px;
+}
+
+.your-offer-title {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    color: #253461;
+}
+
+.offer-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.offer-table * {
+    border: none;
+    background: transparent !important;
+}
+
+/* Image Selector */
+.kd-image-selector {
+    column-gap: 20px;
+    row-gap: 20px;
+}
+
+.kd-image-selector-col {
+    width: 30.5% !important;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-flow: row;
+    width: 130px;
+    text-align: center;
+}
+
+.kd-image-selector-title {
+    color: #253461;
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    word-break: break-word;
+}
+
+.pearl-step.default-select {
+    display: none;
+}
+
+/* Step Collapse Content */
+.kd-step-collapse {
+    padding-left: 20px;
+}
+
+.kd-step-collapse label.kd-radio-option {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #e6e6e6;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.kd-step-collapse label.kd-radio-option:last-child {
+    border-bottom: none;
+}
+
+/* Custom radio style */
+.kd-step-collapse input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid #469ADC;
+    border-radius: 4px;
+    margin-right: 12px;
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.kd-step-collapse input[type="radio"]:checked::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 10px;
+    height: 10px;
+    background-color: #007bff;
+    border-radius: 2px;
+}
+
+.kd-radio-option span {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #253461;
+}
+
+/* Round buttons (quantity +/-) */
+.kd-round-btn {
+    border-radius: 50%;
+    background-color: rgb(37, 52, 97);
+    color: rgb(255, 255, 255);
+    border: none;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 !important;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'Jost', sans-serif;
+    line-height: 1;
+}
+
+.kd-round-btn:hover {
+    background-color: rgb(70, 154, 220);
+}
+
+/* Range slider thumb */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    background-color: #253461;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    border: none;
+    margin-top: -6px;
+}
+
+input[type="range"]::-moz-range-thumb {
+    background-color: #253461;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    border: none;
+}
+
+input[type="range"]::-ms-thumb {
+    background-color: #253461;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    border: none;
+}
+
+.kd-radio-option input[type="range"]::-ms-thumb {
+    background-color: #253461;
+}
+
+/* Specific quantity title */
+.specific-qty-title {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    color: #253461;
+    margin-top: 8px;
+    margin-bottom: 0;
+    padding-bottom: 8px;
+}
+
+/* Contact/Quote button - smaller and more compact */
+.step-contact {
+    background-color: #10C99E;
+    font-family: "Jost", Sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    fill: #FFFFFF;
+    color: #FFFFFF !important;
+    border-style: solid;
+    border-width: 1px 1px 1px 1px;
+    border-color: #10C99E !important;
+    border-radius: 50px;
+    padding: 8px 20px;
+    cursor: pointer;
+}
+
+.step-contact:hover {
+    background-color: transparent;
+    color: #10C99E !important;
+    border-color: #10C99E;
+}
+
+/* Range price tooltip */
+.kd-qty-range-price-tooltip {
+    position: absolute;
+    top: 0;
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #253461;
+    white-space: nowrap;
+}
+
+.kd-qty-range-price-tooltip:before {
+    content: "";
+    position: absolute;
+    height: 14px;
+    background-color: #BCBCBC;
+    width: 1px;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 5px;
+}
+
+/* Quantity column layout */
+.kd-radio-option > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 80px;
+    color: #2a3654;
+    font-weight: 500;
+    width: 40.5%;
+}
+
+.kd-radio-option:first-of-type .kd-radio-meta span {
+    margin-left: auto !important;
+}
+
+/* Save % and price on right */
+.kd-radio-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    color: #2a3654;
+    white-space: nowrap;
+    width: 59.5%;
+    justify-content: space-between;
+}
+
+.kd-radio-meta .save {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 12px;
+    color: rgb(120, 120, 120);
+    margin-bottom: 2px;
+    margin-right: 80px;
+    width: 100px;
+}
+
+/* Contact option - align button to right, no border after */
+.kd-contact-option {
+    justify-content: space-between;
+    border-bottom: none !important;
+}
+
+.kd-contact-meta {
+    justify-content: flex-end !important;
+    width: auto !important;
+}
+
+.pearl-step .range-wrapper {
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+/* Verify quantity button */
+.kd-verify-qty-btn {
+    background-color: #10C99E;
+    font-family: "Jost", Sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    text-transform: uppercase !important;
+    fill: #FFFFFF;
+    color: #FFFFFF;
+    border-style: solid;
+    border-width: 1px 1px 1px 1px;
+    border-color: #10C99E;
+    border-radius: 20px;
+    padding: 10px 24px;
+    cursor: pointer;
+}
+
+.kd-verify-qty-btn:hover,
+.kd-verify-qty-btn:focus {
+    background-color: transparent !important;
+    color: #10C99E !important;
+    border-color: #10C99E !important;
+}
+
+.kd-qty-controls .kd-verify-qty-btn {
+    margin-left: auto;
+}
+
+/* Collapsed step */
+.pearl-step.collapsed .kd-step-collapse {
+    display: none;
+}
+
+/* Selected value indicator */
+.kd-selected-val {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 1.3;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #10A380;
+    width: 35% !important;
+}
+
+.pearl-step.collapsed.selected {
+    cursor: pointer;
+}
+
+/* Main form container */
+#pearl-wc-steps-form,
+.pearl-wc-steps-form {
+    border: 1px solid #DCDCDC;
+    padding-bottom: 26px;
+    border-radius: 20px;
+    background-color: white;
+    position: relative;
+}
+
+/* Step indicator/header */
+.pearl-step-indicator {
+    padding: 20px 21px 15px 21px;  /* Match product-title-wrapper height (20px top, 15px bottom) */
+    margin: 0;
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #253461;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pearl-step-indicator span {
+    text-align: right;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pearl-step-indicator h2 {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #253461;
+    margin: 0 !important;
+}
+
+/* Individual step */
+.pearl-step {
+    border-bottom: 1px solid #DCDCDC;
+    padding: 18px 21px;
+    box-shadow: 0px 0px 25px 5px #0000001A;
+}
+
+.pearl-step:first-of-type {
+    border-top: 1px solid #DCDCDC;
+}
+
+.pearl-step.collapsed.selected {
+    background: #E0F9F3;
+    padding: 12px 21px 15px 21px !important;
+}
+
+.pearl-step.collapsed {
+    box-shadow: none;
+    padding: 16px 21px 12px 21px;
+}
+
+/* Step heading */
+.pearl-step h3 {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    margin: 0;
+    color: #253461;
+    display: flex;
+    align-items: center;
+}
+
+/* Collapsed step: align items to bottom for consistent row alignment */
+.pearl-step.collapsed h3 {
+    align-items: flex-end;
+}
+
+.pearl-step h3 button:hover {
+    width: 20% !important;
+}
+
+.kd-prod-attribute-title-wrapper {
+    display: flex;
+    flex-flow: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    width: 50%;
+}
+
+/* Allow long title text to wrap to next line */
+.pearl-step.collapsed .kd-prod-attribute-title-wrapper span {
+    white-space: normal;
+    word-wrap: break-word;
+    line-height: 1.3;
+}
+
+/* Quantity step title - inline layout */
+.kd-qty-title-wrapper {
+    flex-flow: row !important;
+    align-items: center !important;
+}
+
+.kd-qty-title-wrapper span {
+    display: inline;
+}
+
+.kd-qty-title-wrapper small {
+    display: inline;
+    margin-left: 5px;
+    width: auto !important;
+}
+
+.pearl-step h3 small {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    color: #8D8D8D;
+}
+
+.pearl-step h3 button {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 1.3;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    text-decoration: underline;
+    text-decoration-style: solid;
+    text-decoration-offset: 0%;
+    text-decoration-thickness: 0%;
+    text-decoration-skip-ink: auto;
+    color: #253461;
+    border: none;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding: 0 !important;
+    background: transparent;
+    cursor: pointer;
+}
+
+.pearl-step:not(.collapsed) h3 {
+    margin-bottom: 15px;
+}
+
+/* Box selector (select_boxes display type) */
+.box-selector {
+    border-width: 1px;
+    border-radius: 10px;
+    display: flex;
+    column-gap: 10px;
+    row-gap: 10px;
+    flex-flow: row wrap;
+}
+
+.box-selector-item {
+    cursor: pointer;
+    border: 1px solid rgb(221, 221, 221);
+    padding: 10px;
+    border-radius: 10px;
+    width: 31%;
+    display: flex;
+    align-items: center;
+}
+
+.box-selector-item.selected {
+    border-color: #469ADC;
+    background: #f0f8ff;
+}
+
+.box-selector strong {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #253461;
+}
+
+.box-selector p {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 98%;
+    letter-spacing: 0%;
+    margin: 4px 0 0 0;
+}
+
+/* Image selector display type */
+.image-selector {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.image-selector div {
+    cursor: pointer;
+    text-align: center;
+}
+
+.image-selector img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border: 2px solid transparent;
+    border-radius: 10px;
+}
+
+.image-selector div:hover img,
+.image-selector div.selected img {
+    border-color: #469ADC;
+}
+
+/* Variation summary section */
+.variation-summary {
+    padding: 13px 21px 15px 21px;  /* Match step horizontal padding (21px) */
+    font-family: 'Jost';
+    font-size: 16px;
+    border-bottom: 1px solid #DFDFDF;
+}
+
+.variation-summary .your-offer-title {
+    margin: 0 0 10px 0;
+}
+
+/* Offer table styling */
+.offer-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.offer-table tr td:first-child {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.3;
+    letter-spacing: 0%;
+    padding: 4px 0;
+    text-align: left;
+    vertical-align: bottom;  /* Bottom-align like collapsed steps */
+    color: #253461;
+    width: 50%;  /* Match collapsed step title width */
+}
+
+.offer-table tr td:last-child {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.3;
+    padding: 4px 0;
+    text-align: left;
+    vertical-align: bottom;  /* Bottom-align like collapsed steps */
+    color: #253461;
+    width: 50%;  /* Spans value area (35%) + button area (15%) */
+}
+
+/* Free value styling (Kostenlos) - green text */
+.offer-table tr td.kd-free-value {
+    color: #10A380;
+}
+
+/* Action buttons wrapper */
+.kd-action-btns-wrapper {
+    padding: 20px 21px 26px 21px;  /* Match step horizontal padding (21px) */
+    display: flex;
+    column-gap: 12px;
+    justify-content: center;
+}
+
+.kd-action-btns-wrapper .kd-single-action-btn:first-child button {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    color: #469ADC;
+    padding: 15px;
+    border: 1px solid #469ADC;
+    border-radius: 83px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.kd-addon-submit-btn {
+    background-color: #10C99E;
+    font-family: "Jost", Sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    text-transform: uppercase;
+    fill: #FFFFFF;
+    color: #FFFFFF;
+    border-style: solid;
+    border-width: 1px 1px 1px 1px;
+    border-color: #10C99E;
+    border-radius: 50px 50px 50px 50px;
+    padding: 10px 30px 10px 30px;
+    cursor: pointer;
+}
+
+.kd-addon-submit-btn:hover,
+.kd-addon-submit-btn:active,
+.kd-addon-submit-btn:focus {
+    background-color: transparent !important;
+    color: #10C99E !important;
+}
+
+.kd-action-btns-wrapper .kd-single-action-btn:first-child button:disabled,
+.kd-action-btns-wrapper .kd-single-action-btn:last-child button:disabled {
+    background-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+    opacity: 0.7;
+    pointer-events: none;
+    border: none;
+}
+
+.kd-action-btns-wrapper .kd-single-action-btn:last-child button {
+    font-family: Jost;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 100%;
+    letter-spacing: 0%;
+    text-transform: uppercase;
+    background-color: #10C99E;
+    color: white;
+    padding: 15px;
+    border: 1px solid #10C99E;
+    border-radius: 83px;
+    min-width: 247px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.kd-action-btns-wrapper .kd-single-action-btn:last-child button:hover {
+    background-color: transparent;
+    color: #10C99E;
+}
+
+.kd-action-btns-wrapper .kd-single-action-btn {
+    width: 48%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Helper text under buttons */
+.kd-action-btns-wrapper .kd-single-action-btn small {
+    font-family: Jost;
+    font-weight: 400;
+    font-size: 13px;
+    line-height: 100%;
+    color: #787878;
+    margin-top: 8px;
+}
+
+.kd-action-btns-wrapper button {
+    width: 100%;
+}
+
+/* Delivery tooltip */
+.kd-delivery-tooltip {
+    position: absolute;
+    top: -5px;
+    left: 117px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+    width: 13px;
+    height: 13px;
+    background: #253461 !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    font-size: 10px;
+}
+
+.closeUrgentPopup {
+    position: absolute;
+    right: 10px;
+    top: 0;
+    font-size: 30px;
+    color: red;
+    font-family: 'Jost';
+    cursor: pointer;
+}
+
+/* Range track styling */
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+}
+
+/* Quantity controls */
+.kd-range-slider-container {
+    position: relative;
+    margin-bottom: 10px;
+    margin-top: 0;
+    padding-top: 20px;
+}
+
+.kd-qty-display {
+    position: absolute;
+    top: -5px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: #fff;
+    background: #2a3654;
+    padding: 4px 6px;
+    border-radius: 3px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.kd-range-ticks {
+    position: relative;
+    margin-top: 8px;
+    padding: 0;
+    /* Account for slider thumb width (16px) - thumb center moves from 8px to (width-8px) */
+    width: calc(100% - 16px);
+    margin-left: 8px;
+    height: 25px; /* Height for absolutely positioned tick labels */
+    margin-bottom: 0;
+}
+
+.kd-qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.kd-qty-input {
+    width: 140px !important;
+    height: 42px;
+    padding: 8px !important;
+    border-radius: 15px !important;
+    text-align: center;
+    font-family: 'Jost', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: #253461;
+    border: 1px solid #ddd !important;
+    outline: none;
+}
+
+.kd-qty-input:focus {
+    border-color: #469ADC;
+}
+
+/* Remove spinner arrows from number input */
+.kd-qty-input::-webkit-outer-spin-button,
+.kd-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.kd-qty-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Summary table values */
+.kd-free-value {
+    color: #10A380;
+}
+
+.kd-price-value {
+    font-weight: 500;
+}
+
+.kd-total-value {
+    font-weight: bold;
+}
+
+/* Lieferzeit tooltip */
+.kd-lieferzeit-cell {
+    position: relative;
+}
+
+/* Lieferzeit row - both cells align to top so Lieferzeit aligns with delivery content */
+.offer-table tr:has(.kd-lieferzeit-cell) td:first-child {
+    vertical-align: top !important;
+}
+
+.offer-table tr:has(.kd-lieferzeit-cell) td:last-child {
+    vertical-align: top !important;
+}
+
+/* kd-delivery-content: inline display for proper text flow */
+.offer-table .kd-delivery-content {
+    display: inline-block;
+    padding-top: 3px;
+}
+
+/* Express link wrapper: block display below delivery content with spacing */
+.offer-table .kd-express-link-wrapper {
+    display: block;
+    margin-top: 8px;
+}
+
+.offer-table .kd-tooltip-trigger {
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+    border-radius: 50% !important;
+    background: #253461 !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    margin-left: 6px !important;
+    position: relative !important;
+    vertical-align: super !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+
+.offer-table .kd-tooltip-trigger:hover {
+    background: #469ADC !important;
+}
+
+.offer-table .kd-tooltip-content {
+    position: absolute !important;
+    left: 24px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 1000 !important;
+    padding: 12px 15px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    white-space: normal !important;
+    width: 280px !important;
+    background: #253461 !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.offer-table .kd-tooltip-content::before {
+    content: '' !important;
+    position: absolute !important;
+    left: -6px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    border-width: 6px !important;
+    border-style: solid !important;
+    border-color: transparent #253461 transparent transparent !important;
+}
+
+/* Express delivery link */
+.offer-table .kd-express-link {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 5px 0 0 0 !important;
+    color: #469ADC !important;
+    text-decoration: underline !important;
+    cursor: pointer !important;
+    font-family: 'Jost', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    display: inline-block !important;
+    text-align: right !important;
+}
+
+.offer-table .kd-express-link:hover {
+    color: #253461 !important;
+}
+
+/* Change button positioning */
+.kd-selected-chng-btn {
+    width: 15% !important;
+    text-align: right !important;
+    min-width: fit-content;
+}
+
+/* Mobile responsive */
+@media (max-width: 767px) {
+    /* Prevent horizontal scroll on steps */
+    .pearl-step {
+        overflow-x: hidden;
+    }
+
+    /* Step indicator - align "FROM X PCS" with CHANGE buttons */
+    .pearl-step-indicator {
+        display: grid !important;
+        grid-template-columns: 75% 25%;
+        padding: 15px 21px;
+    }
+
+    .pearl-step-indicator h2 {
+        font-size: 13px;
+    }
+
+    .pearl-step-indicator span {
+        text-align: right;
+        font-size: 13px;
+    }
+
+    /* ==========================================
+       COLLAPSED STEPS - 3 Column Grid Layout
+       Fixes alignment issues on mobile
+       ========================================== */
+    .pearl-step.collapsed h3 {
+        display: grid !important;
+        grid-template-columns: 45% 30% 25%;
+        gap: 0;
+        align-items: end;  /* Bottom-align all columns */
+        width: 100%;
+    }
+
+    .pearl-step.collapsed .kd-prod-attribute-title-wrapper {
+        width: 100% !important;
+        min-width: 0;
+    }
+
+    .pearl-step.collapsed .kd-prod-attribute-title-wrapper span {
+        white-space: normal;
+        word-wrap: break-word;
+        display: block;
+        line-height: 1.3;
+        font-size: 14px;
+    }
+
+    .pearl-step.collapsed .kd-selected-val {
+        width: 100% !important;
+        text-align: left;  /* Left-aligned to match screenshot */
+        font-size: 12px;
+        padding: 0 5px;
+    }
+
+    .pearl-step.collapsed .kd-selected-chng-btn {
+        width: 100% !important;
+        min-width: unset !important;
+        text-align: right;
+        font-size: 12px;
+    }
+
+    /* Non-collapsed step header */
+    .pearl-step:not(.collapsed) h3 {
+        flex-wrap: nowrap;
+        max-width: 100%;
+    }
+
+    /* ==========================================
+       OFFER TABLE - Fixed Column Alignment
+       Section 4: Ihr Angebot pricing summary
+       ========================================== */
+    .offer-table {
+        table-layout: fixed !important;
+        width: 100% !important;
+    }
+
+    .offer-table tr td:first-child {
+        width: 45% !important;  /* Matches collapsed step title column */
+        font-size: 14px;
+        padding-right: 8px;
+        vertical-align: bottom;  /* Bottom-align like collapsed steps */
+    }
+
+    .offer-table tr td:last-child {
+        width: 55% !important;  /* Spans value + action columns of steps */
+        font-size: 13px;
+        text-align: left;
+        vertical-align: bottom;  /* Bottom-align like collapsed steps */
+        padding-left: 5px;  /* Align with collapsed step values which have padding: 0 5px */
+    }
+
+    /* Variation summary section padding - match step horizontal padding (21px) */
+    .variation-summary {
+        padding: 12px 21px;
+    }
+
+    .box-selector-item {
+        width: 48%;
+    }
+
+    .kd-image-selector-col {
+        width: 45% !important;
+    }
+
+    /* Action buttons wrapper - match step horizontal padding (21px) */
+    .kd-action-btns-wrapper {
+        flex-direction: column;
+        gap: 10px;
+        padding: 20px 21px 26px 21px;
+    }
+
+    .kd-action-btns-wrapper .kd-single-action-btn {
+        width: 100%;
+    }
+
+    .kd-qty-controls {
+        flex-wrap: wrap;
+    }
+
+    .kd-qty-input {
+        width: 120px !important;
+    }
+
+    /* Quantity tier rows on mobile - prevent price cutoff */
+    .kd-radio-option > div:first-child {
+        width: 25% !important;
+        min-width: 50px;
+    }
+
+    .kd-radio-meta {
+        width: 75% !important;
+        overflow: visible;
+    }
+
+    .kd-radio-meta .save {
+        margin-right: 10px !important;
+        width: auto;
+        font-size: 10px;
+    }
+
+    .kd-radio-meta span:last-child {
+        min-width: 50px;
+        text-align: right;
+    }
+
+    /* Mobile: Lieferzeit row - both cells align to top so Lieferzeit aligns with delivery content */
+    .offer-table tr:has(.kd-lieferzeit-cell) td:first-child {
+        vertical-align: top !important;
+    }
+
+    .offer-table tr:has(.kd-lieferzeit-cell) td:last-child {
+        vertical-align: top !important;
+    }
+
+    .offer-table .kd-express-link-wrapper {
+        display: block;
+        margin-top: 8px;
+    }
+}
+
+/* ==========================================
+   Question Box - Hast du eine Frage?
+   (Separate box with same styling as steps)
+   ========================================== */
+.kd-question-box {
+    border: 1px solid #DCDCDC;
+    border-radius: 20px;
+    background-color: white;
+    padding: 20px 15px;
+    text-align: center;
+    margin-top: 0;
+}
+
+.kd-question-box h3 {
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: #253461;
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+}
+
+.kd-question-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.kd-btn-contact,
+.kd-btn-faq {
+    font-family: 'Jost', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 10px 22px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.kd-btn-contact {
+    background-color: #10C99E;
+    color: white;
+    border: 1px solid #10C99E;
+}
+
+.kd-btn-contact:hover {
+    background-color: transparent;
+    color: #10C99E;
+}
+
+.kd-btn-faq {
+    background-color: transparent;
+    color: #253461;
+    border: 1px solid #253461;
+}
+
+.kd-btn-faq:hover {
+    background-color: #253461;
+    color: white;
+}
+
+/* Override ContactFormPopup button styles when in question box */
+.kd-question-buttons .contact-trigger-button.kd-btn-contact {
+    font-family: 'Jost', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-block;
+    background-color: #10C99E;
+    color: white;
+    border: 1px solid #10C99E;
+}
+
+.kd-question-buttons .contact-trigger-button.kd-btn-contact:hover {
+    background-color: transparent;
+    color: #10C99E;
+}
+
+/* ==========================================
+   Vision Section - Verwirklichen Sie Ihre Vision
+   ========================================== */
+.kd-vision-section {
+    background-color: #253461;
+    border-radius: 20px;
+    padding: 22px 36px 22px 63px; /* top right bottom left - matching WordPress */
+    display: flex;
+    align-items: center;
+    gap: 60px; /* Space between image and text */
+    margin-top: -5px; /* Parent .product-info has 20px flex gap, so -5px gives ~15px total spacing */
+}
+
+.kd-vision-images {
+    flex: 0 1 auto;
+    max-width: 45%;
+}
+
+.kd-vision-images img {
+    width: auto;
+    max-width: 207px;
+    height: auto;
+    max-height: 267px;
+    object-fit: contain;
+}
+
+.kd-vision-content {
+    flex: 0 1 auto;
+    text-align: left;
+}
+
+.kd-vision-content h3 {
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 30px;
+    color: white;
+    margin: 0 0 20px 0;
+    text-transform: uppercase;
+}
+
+.kd-btn-design {
+    font-family: 'Jost', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 14px;
+    border-radius: 100px;
+    background-color: #10C99E;
+    color: white;
+    border: 1px solid #10C99E;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.kd-btn-design:hover {
+    background-color: transparent;
+    color: #10C99E;
+}
+
+/* Mobile responsive for new sections */
+@media (max-width: 767px) {
+    .kd-question-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .kd-btn-contact,
+    .kd-btn-faq {
+        width: 100%;
+        max-width: 280px;
+        text-align: center;
+    }
+
+    .kd-vision-section {
+        flex-direction: column;
+        padding: 30px 20px;
+        text-align: center;
+    }
+
+    .kd-vision-images {
+        flex: none;
+        max-width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .kd-vision-content {
+        text-align: center;
+    }
+
+    .kd-vision-content h3 {
+        font-size: 22px;
+    }
+}
+
+/* ==========================================
+   Loading Overlay & Spinner
+   ========================================== */
+
+/* Loading overlay - scoped to product-info section */
+.kd-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: 20px;
+}
+
+.kd-loading-overlay .kd-loading-content {
+    text-align: center;
+}
+
+.kd-loading-overlay .kd-loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #E0E0E0;
+    border-top-color: #10C99E;
+    border-radius: 50%;
+    animation: kd-spin 0.8s linear infinite;
+    margin: 0 auto 20px auto;
+}
+
+.kd-loading-overlay .kd-loading-text {
+    font-family: 'Jost', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: #253461;
+    margin: 0;
+}
+
+.kd-loading-overlay .kd-loading-subtext {
+    font-family: 'Jost', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: #787878;
+    margin-top: 8px;
+}
+
+/* Inline button spinner */
+.kd-btn-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: kd-spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Spinner for outline button (quote button) */
+.kd-action-btns-wrapper .kd-single-action-btn:first-child button .kd-btn-spinner {
+    border-color: rgba(16, 201, 158, 0.3);
+    border-top-color: #10C99E;
+}
+
+/* Spinner animation */
+@keyframes kd-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Button loading state - prevent text jump */
+.kd-action-btns-wrapper button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+}
+
+/* CRM editable summary fields */
+.kd-editable-field {
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+    background: transparent;
+    width: auto;
+    min-width: 60px;
+    max-width: 120px;
+    text-align: right;
+    transition: border-color 0.2s, background 0.2s;
+}
+.kd-editable-field:hover {
+    border-color: #ccc;
+    background: #f9f9f9;
+}
+.kd-editable-field:focus {
+    outline: none;
+    border-color: #469ADC;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(70, 154, 220, 0.15);
+}
+
+/* Quote name field — full-width editable field in summary */
+.kd-quote-name-wrapper {
+    padding: 0 21px 12px;
+    margin-top: 15px;
+}
+.kd-quote-name-wrapper label {
+    display: block;
+    font-family: Jost, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 5px;
+}
+.kd-quote-name-wrapper input {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: Jost, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: #1f2937;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.kd-quote-name-wrapper input:hover {
+    border-color: #9ca3af;
+}
+.kd-quote-name-wrapper input:focus {
+    outline: none;
+    border-color: #469ADC;
+    box-shadow: 0 0 0 2px rgba(70, 154, 220, 0.15);
+}

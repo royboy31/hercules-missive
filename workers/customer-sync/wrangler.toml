@@ -1,0 +1,11 @@
+name = "hercules-customer-sync"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "CUSTOMERS_DB"
+database_name = "hercules-customers"
+database_id = "d1177b06-ba2d-4a47-9186-be36946f7dbe"
+
+[vars]
+WEBHOOK_SECRET = "hercules-customer-sync-secret-2026"

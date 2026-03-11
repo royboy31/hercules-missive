@@ -4,14 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hercules CRM</title>
+  <meta http-equiv="refresh" content="0;url=/sidebar" />
   <link href="https://integrations.missiveapp.com/missive.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Roboto', sans-serif;
       background: var(--missive-background-color, #fff);
-      color: var(--missive-text-color, #1a1a1a);
+      color: var(--missive-text-color, #253461);
       padding: 16px;
       min-height: 100vh;
       display: flex;
@@ -21,27 +25,30 @@
     .header {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       margin-bottom: 20px;
     }
 
     .logo {
       width: 28px;
       height: 28px;
-      background: #c8102e;
+      background: #469ADC;
       border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
       font-weight: 700;
-      font-size: 14px;
+      font-size: 15px;
+      font-family: 'Jost', sans-serif;
       flex-shrink: 0;
     }
 
     .header-title {
-      font-size: 14px;
+      font-family: 'Jost', sans-serif;
+      font-size: 15px;
       font-weight: 600;
+      color: #469ADC;
       letter-spacing: 0.02em;
     }
 
@@ -53,14 +60,15 @@
     .empty-state {
       text-align: center;
       padding: 32px 8px;
-      color: var(--missive-light-text-color, #888);
+      color: var(--missive-light-text-color, #7a839b);
     }
 
     .empty-state svg {
       width: 40px;
       height: 40px;
       margin-bottom: 12px;
-      opacity: 0.4;
+      opacity: 0.35;
+      stroke: #253461;
     }
 
     .empty-state p {
@@ -74,11 +82,12 @@
     }
 
     .label {
+      font-family: 'Jost', sans-serif;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--missive-light-text-color, #888);
+      letter-spacing: 0.06em;
+      color: var(--missive-light-text-color, #7a839b);
       margin-bottom: 8px;
     }
 
@@ -87,24 +96,71 @@
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 16px;
+      border-left: 3px solid #253461;
     }
 
     .customer-email {
+      font-family: 'Jost', sans-serif;
       font-size: 14px;
       font-weight: 600;
+      color: #253461;
       word-break: break-all;
       margin-bottom: 2px;
     }
 
     .customer-name {
       font-size: 13px;
-      color: var(--missive-light-text-color, #888);
+      color: var(--missive-light-text-color, #7a839b);
     }
 
     .email-count {
       font-size: 11px;
-      color: var(--missive-light-text-color, #888);
+      color: var(--missive-light-text-color, #7a839b);
       margin-top: 6px;
+    }
+
+    /* Region tags */
+    .region-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .region-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-family: 'Jost', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .region-tag.found {
+      background: #e6faf3;
+      color: #0a7d5a;
+    }
+
+    .region-tag.not-found {
+      background: var(--missive-conversation-list-background-color, #f3f4f6);
+      color: var(--missive-light-text-color, #9ca3af);
+    }
+
+    .region-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .region-tag.found .region-dot { background: #253461; }
+    .region-tag.not-found .region-dot { background: #d1d5db; }
+
+    .region-loading {
+      font-size: 11px;
+      color: var(--missive-light-text-color, #7a839b);
+      margin-bottom: 12px;
     }
 
     /* CTA button */
@@ -115,10 +171,11 @@
       gap: 8px;
       width: 100%;
       padding: 10px 16px;
-      background: #c8102e;
+      background: #253461;
       color: #fff;
       border: none;
       border-radius: 8px;
+      font-family: 'Jost', sans-serif;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
@@ -126,14 +183,106 @@
       text-decoration: none;
     }
 
-    .cta-button:hover { background: #a80d25; }
-    .cta-button:active { background: #8f0b1f; }
+    .cta-button:hover { background: #1c2847; }
+    .cta-button:active { background: #151e38; }
+
+    .cta-button + .cta-button { margin-top: 8px; }
+
+    .cta-button.secondary {
+      background: #10c99e;
+    }
+    .cta-button.secondary:hover { background: #0db88e; }
+    .cta-button.secondary:active { background: #0aa67d; }
+
+    /* Region picker for new customers */
+    .region-picker {
+      margin-bottom: 12px;
+    }
+
+    .region-picker-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--missive-conversation-list-background-color, #f5f5f5);
+      border: 2px solid transparent;
+      border-radius: 8px;
+      font-family: 'Jost', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--missive-text-color, #253461);
+    }
+
+    .region-picker-btn:hover {
+      border-color: #253461;
+    }
+
+    .region-picker-btn.selected {
+      border-color: #10c99e;
+      background: #e6faf3;
+    }
+
+    .region-picker-btn + .region-picker-btn { margin-top: 6px; }
 
     .cta-button svg {
       width: 16px;
       height: 16px;
       flex-shrink: 0;
     }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-label {
+      font-size: 11px;
+      font-family: 'Jost', sans-serif;
+      transition: all 0.15s;
+    }
+
+    .mode-label.active {
+      font-weight: 600;
+      color: #253461;
+    }
+
+    .mode-label.inactive {
+      font-weight: 400;
+      color: #999;
+    }
+
+    .toggle-track {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.2s;
+    }
+
+    .toggle-track.quote { background: #ccc; }
+    .toggle-track.order { background: #253461; }
+
+    .toggle-knob {
+      position: absolute;
+      top: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: left 0.2s;
+    }
+
+    .toggle-track.quote .toggle-knob { left: 2px; }
+    .toggle-track.order .toggle-knob { left: 18px; }
 
     /* Multiple emails */
     .email-list {
@@ -157,15 +306,16 @@
     }
 
     .email-list li .arrow {
-      color: var(--missive-light-text-color, #888);
-      font-size: 12px;
+      color: #253461;
+      font-size: 14px;
+      font-weight: 600;
     }
 
     /* Loading */
     .loading {
       text-align: center;
       padding: 32px 8px;
-      color: var(--missive-light-text-color, #888);
+      color: var(--missive-light-text-color, #7a839b);
       font-size: 13px;
     }
 
@@ -173,7 +323,7 @@
       width: 24px;
       height: 24px;
       border: 2px solid var(--missive-conversation-list-background-color, #e0e0e0);
-      border-top-color: #c8102e;
+      border-top-color: #253461;
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
       margin: 0 auto 12px;
@@ -183,9 +333,18 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">H</div>
-    <div class="header-title">Hercules CRM</div>
+  <div class="header" style="display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="logo">H</div>
+      <div class="header-title">Hercules CRM</div>
+    </div>
+    <div class="mode-toggle">
+      <span class="mode-label active" id="label-quote">Quote</span>
+      <button type="button" class="toggle-track quote" id="mode-toggle">
+        <span class="toggle-knob"></span>
+      </button>
+      <span class="mode-label inactive" id="label-order">Order</span>
+    </div>
   </div>
 
   <!-- State: Loading -->
@@ -214,12 +373,8 @@
         <div class="customer-email" id="customer-email"></div>
         <div class="customer-name" id="customer-name"></div>
       </div>
-      <button class="cta-button" id="open-crm-btn">
-        Open Hercules CRM
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-        </svg>
-      </button>
+      <div id="region-status"></div>
+      <div id="action-buttons"></div>
     </div>
   </div>
 
@@ -237,6 +392,31 @@
     // Same Pages project — just use the origin
     const DASHBOARD_URL = location.origin;
 
+    const REGION_NAMES = { DE: 'Germany', UK: 'United Kingdom', FR: 'France' };
+
+    // --- Mode toggle (Quote / Order) ---
+    var currentMode = 'quote';
+
+    document.getElementById('mode-toggle').addEventListener('click', function () {
+      currentMode = currentMode === 'quote' ? 'order' : 'quote';
+      var track = document.getElementById('mode-toggle');
+      var labelQuote = document.getElementById('label-quote');
+      var labelOrder = document.getElementById('label-order');
+      track.className = 'toggle-track ' + currentMode;
+      labelQuote.className = 'mode-label ' + (currentMode === 'quote' ? 'active' : 'inactive');
+      labelOrder.className = 'mode-label ' + (currentMode === 'order' ? 'active' : 'inactive');
+      // Update button text if visible
+      updateButtonLabels();
+    });
+
+    function updateButtonLabels() {
+      var prodBtn = document.getElementById('open-products-btn');
+      if (prodBtn) {
+        var svgHtml = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>';
+        prodBtn.innerHTML = (currentMode === 'order' ? 'Create Order' : 'Product Catalog') + svgHtml;
+      }
+    }
+
     // --- State management ---
     let currentEmail = null;
     let currentName = null;
@@ -249,6 +429,117 @@
     function openDashboard(email) {
       const url = DASHBOARD_URL + '?email=' + encodeURIComponent(email);
       Missive.openURL(url);
+    }
+
+    // --- Region lookup ---
+    let customerRegions = {};
+    let selectedRegionForNew = null;
+
+    function lookupRegions(email) {
+      var container = document.getElementById('region-status');
+      var actionsContainer = document.getElementById('action-buttons');
+      container.innerHTML = '<div class="region-loading">Checking regions...</div>';
+      actionsContainer.innerHTML = '';
+
+      fetch(DASHBOARD_URL + '/api/wc/customers?email=' + encodeURIComponent(email))
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          customerRegions = data.regions || {};
+          var order = ['DE', 'UK', 'FR'];
+          var foundRegions = [];
+
+          // Build region tags
+          var html = '<div class="region-tags">';
+          for (var i = 0; i < order.length; i++) {
+            var code = order[i];
+            var match = customerRegions[code];
+            var found = match && match.found;
+            var cls = found ? 'found' : 'not-found';
+            var label = code;
+            if (found) {
+              foundRegions.push(code);
+              if (match.first_name) {
+                label = code + ' — ' + match.first_name + (match.last_name ? ' ' + match.last_name : '');
+              }
+            }
+            html += '<span class="region-tag ' + cls + '">' +
+              '<span class="region-dot"></span>' +
+              escapeHtml(label) +
+              '</span>';
+          }
+          html += '</div>';
+          container.innerHTML = html;
+
+          // Build action buttons
+          if (foundRegions.length > 0) {
+            // Customer exists — go directly to products with first found region
+            var firstRegion = foundRegions[0];
+            actionsContainer.innerHTML =
+              '<button class="cta-button secondary" id="open-products-btn">' +
+                'Product Catalog' +
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>' +
+              '</button>' +
+              '<button class="cta-button" id="open-crm-btn">' +
+                'Customer Details' +
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>' +
+              '</button>';
+
+            document.getElementById('open-products-btn').addEventListener('click', function () {
+              Missive.openURL(DASHBOARD_URL + '/products?email=' + encodeURIComponent(currentEmail) + '&region=' + firstRegion + '&mode=' + currentMode);
+            });
+            document.getElementById('open-crm-btn').addEventListener('click', function () {
+              openDashboard(currentEmail);
+            });
+            updateButtonLabels();
+          } else {
+            // New customer — show region picker then product catalog button
+            selectedRegionForNew = null;
+            var pickerHtml = '<div class="label">Select region</div><div class="region-picker" id="region-picker">';
+            for (var j = 0; j < order.length; j++) {
+              pickerHtml += '<button class="region-picker-btn" data-region="' + order[j] + '">' +
+                '<span class="region-dot" style="background:#253461;width:6px;height:6px;border-radius:50%;flex-shrink:0"></span>' +
+                order[j] + ' — ' + escapeHtml(REGION_NAMES[order[j]]) +
+              '</button>';
+            }
+            pickerHtml += '</div>' +
+              '<button class="cta-button secondary" id="open-products-btn" disabled style="opacity:0.5">' +
+                'Product Catalog' +
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>' +
+              '</button>' +
+              '<button class="cta-button" id="open-crm-btn">' +
+                'Customer Details' +
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>' +
+              '</button>';
+
+            actionsContainer.innerHTML = pickerHtml;
+
+            // Region picker click handlers
+            var regionBtns = document.querySelectorAll('.region-picker-btn');
+            regionBtns.forEach(function (btn) {
+              btn.addEventListener('click', function () {
+                regionBtns.forEach(function (b) { b.classList.remove('selected'); });
+                btn.classList.add('selected');
+                selectedRegionForNew = btn.getAttribute('data-region');
+                var prodBtn = document.getElementById('open-products-btn');
+                prodBtn.disabled = false;
+                prodBtn.style.opacity = '1';
+              });
+            });
+
+            document.getElementById('open-products-btn').addEventListener('click', function () {
+              if (selectedRegionForNew) {
+                Missive.openURL(DASHBOARD_URL + '/products?email=' + encodeURIComponent(currentEmail) + '&region=' + selectedRegionForNew + '&mode=' + currentMode);
+              }
+            });
+            document.getElementById('open-crm-btn').addEventListener('click', function () {
+              openDashboard(currentEmail);
+            });
+            updateButtonLabels();
+          }
+        })
+        .catch(function () {
+          container.innerHTML = '';
+        });
     }
 
     // --- Filter out team/internal emails ---
@@ -309,6 +600,7 @@
         document.getElementById('customer-name').style.display = currentName ? 'block' : 'none';
 
         showState('state-customer');
+        lookupRegions(currentEmail);
       } else {
         // Multiple external emails — let the user pick
         const list = document.getElementById('email-list');
@@ -335,13 +627,6 @@
       div.textContent = str;
       return div.innerHTML;
     }
-
-    // --- Button handler ---
-    document.getElementById('open-crm-btn').addEventListener('click', function () {
-      if (currentEmail) {
-        openDashboard(currentEmail);
-      }
-    });
 
     // --- Listen for conversation changes ---
     Missive.on('change:conversations', function (ids) {
