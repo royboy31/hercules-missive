@@ -1,24 +1,7 @@
 import type { APIRoute } from 'astro';
+import { getWcStores } from '../../../lib/wc-stores';
 
 const REGION_CODES = ['DE', 'UK', 'FR'];
-
-const WC_STORES: Record<string, { url: string; ck: string; cs: string }> = {
-  DE: {
-    url: 'https://hercules-merchandise.de',
-    ck: 'ck_25a394425268abad8f7255eaff2349e10bc1e3d5',
-    cs: 'cs_aee9e05ff27a008297c5bdded53e766efbbef068',
-  },
-  UK: {
-    url: 'https://hercules-merchandise.co.uk',
-    ck: 'ck_5d7dfb3d454cd2a0cbd8dae317caa09eb0084f9f',
-    cs: 'cs_5257e559b5a555d9e5fe9e4983616583c55cb278',
-  },
-  FR: {
-    url: 'https://hercules-merchandising.fr',
-    ck: 'ck_b2fb9151600c581d945db314fc83219877e10118',
-    cs: 'cs_38014792bf0129ddbac1f414ef5c9072c8ba4aca',
-  },
-};
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -38,7 +21,7 @@ function getCustomerMeta(customer: any, key: string): string {
  * Query a single WooCommerce store for a customer by email.
  * Returns the first matching customer or null.
  */
-async function wcLookup(region: string, email: string): Promise<any | null> {
+async function wcLookup(region: string, email: string, WC_STORES: Record<string, { url: string; ck: string; cs: string }>): Promise<any | null> {
   const store = WC_STORES[region];
   if (!store) return null;
   const auth = btoa(`${store.ck}:${store.cs}`);
@@ -69,6 +52,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
   const runtime = (locals as any).runtime;
   const db = runtime?.env?.CUSTOMERS_DB;
+  const WC_STORES = getWcStores(runtime?.env || {});
 
   // ── Search mode: query D1 by name/email/company ──
   if (search) {
@@ -133,7 +117,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   if (missingRegions.length > 0) {
     const lookups = await Promise.all(
       missingRegions.map(async (code) => {
-        const customer = await wcLookup(code, email);
+        const customer = await wcLookup(code, email, WC_STORES);
         return { code, customer };
       })
     );
@@ -184,7 +168,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   if (d1RegionsToEnrich.length > 0) {
     const enrichResults = await Promise.all(
       d1RegionsToEnrich.map(async (code) => {
-        const customer = await wcLookup(code, email);
+        const customer = await wcLookup(code, email, WC_STORES);
         return { code, customer };
       })
     );
@@ -306,6 +290,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
  *   Body: { region, email, first_name, last_name, company?, address_1?, address_2?, city?, postcode?, country? }
  */
 export const POST: APIRoute = async ({ request, locals }) => {
+  const runtime = (locals as any).runtime;
+  const WC_STORES = getWcStores(runtime?.env || {});
   let body: any;
   try {
     body = await request.json();
@@ -411,6 +397,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
  *   notes is stored only in D1 (CRM-internal), not sent to WooCommerce
  */
 export const PUT: APIRoute = async ({ request, locals }) => {
+  const runtime = (locals as any).runtime;
+  const WC_STORES = getWcStores(runtime?.env || {});
   let body: any;
   try {
     body = await request.json();

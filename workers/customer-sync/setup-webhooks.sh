@@ -8,23 +8,23 @@
 #
 
 WORKER_URL="https://hercules-customer-sync.kamindudushmantha.workers.dev"
-WEBHOOK_SECRET="hercules-customer-sync-secret-2026"
+WEBHOOK_SECRET="${WEBHOOK_SECRET:?Set WEBHOOK_SECRET env var}"
 
-# WooCommerce API credentials per region
+# WooCommerce API credentials per region — set these as env vars before running
 declare -A STORE_URLS
 STORE_URLS[DE]="https://hercules-merchandise.de"
 STORE_URLS[UK]="https://hercules-merchandise.co.uk"
 STORE_URLS[FR]="https://hercules-merchandising.fr"
 
 declare -A CONSUMER_KEYS
-CONSUMER_KEYS[DE]="ck_25a394425268abad8f7255eaff2349e10bc1e3d5"
-CONSUMER_KEYS[UK]="ck_5d7dfb3d454cd2a0cbd8dae317caa09eb0084f9f"
-CONSUMER_KEYS[FR]="ck_b2fb9151600c581d945db314fc83219877e10118"
+CONSUMER_KEYS[DE]="${WC_DE_CK:?Set WC_DE_CK env var}"
+CONSUMER_KEYS[UK]="${WC_UK_CK:?Set WC_UK_CK env var}"
+CONSUMER_KEYS[FR]="${WC_FR_CK:?Set WC_FR_CK env var}"
 
 declare -A CONSUMER_SECRETS
-CONSUMER_SECRETS[DE]="cs_aee9e05ff27a008297c5bdded53e766efbbef068"
-CONSUMER_SECRETS[UK]="cs_5257e559b5a555d9e5fe9e4983616583c55cb278"
-CONSUMER_SECRETS[FR]="cs_38014792bf0129ddbac1f414ef5c9072c8ba4aca"
+CONSUMER_SECRETS[DE]="${WC_DE_CS:?Set WC_DE_CS env var}"
+CONSUMER_SECRETS[UK]="${WC_UK_CS:?Set WC_UK_CS env var}"
+CONSUMER_SECRETS[FR]="${WC_FR_CS:?Set WC_FR_CS env var}"
 
 TOPICS=("customer.created" "customer.updated" "customer.deleted")
 

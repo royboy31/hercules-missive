@@ -1,24 +1,5 @@
 import type { APIRoute } from 'astro';
-
-const WC_STORES: Record<string, { url: string; ck: string; cs: string }> = {
-  DE: {
-    url: 'https://hercules-merchandise.de',
-    ck: 'ck_25a394425268abad8f7255eaff2349e10bc1e3d5',
-    cs: 'cs_aee9e05ff27a008297c5bdded53e766efbbef068',
-  },
-  UK: {
-    url: 'https://hercules-merchandise.co.uk',
-    ck: 'ck_5d7dfb3d454cd2a0cbd8dae317caa09eb0084f9f',
-    cs: 'cs_5257e559b5a555d9e5fe9e4983616583c55cb278',
-  },
-  FR: {
-    url: 'https://hercules-merchandising.fr',
-    ck: 'ck_b2fb9151600c581d945db314fc83219877e10118',
-    cs: 'cs_38014792bf0129ddbac1f414ef5c9072c8ba4aca',
-  },
-};
-
-const CRM_QUOTE_SECRET = 'hercules-crm-quote-secret-2026';
+import { getWcStores } from '../../../lib/wc-stores';
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -52,8 +33,10 @@ async function createQuoteRequest(
   vatNumber?: string,
   designFiles?: { name: string; url: string }[],
   country?: string,
+  WC_STORES?: Record<string, { url: string; ck: string; cs: string }>,
+  CRM_QUOTE_SECRET?: string,
 ): Promise<{ success: boolean; quote_id?: number; quote_url?: string; pdf_url?: string; email_sent?: boolean; error?: string }> {
-  const store = WC_STORES[region];
+  const store = WC_STORES?.[region];
   if (!store) return { success: false, error: `Unknown region: ${region}` };
 
   const nameParts = (customerName || '').split(' ');
@@ -102,7 +85,7 @@ async function createQuoteRequest(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CRM-Secret': CRM_QUOTE_SECRET,
+        'X-CRM-Secret': CRM_QUOTE_SECRET || '',
       },
       body: JSON.stringify(payload),
     });
@@ -130,6 +113,9 @@ async function createQuoteRequest(
  *   → All regions: create quote_request via Pearl plugin mu-plugin (PDF + email)
  */
 export const POST: APIRoute = async ({ request, locals }) => {
+  const runtime = (locals as any).runtime;
+  const WC_STORES = getWcStores(runtime?.env || {});
+  const CRM_QUOTE_SECRET = runtime?.env?.CRM_QUOTE_SECRET || '';
   let body: any;
   try {
     body = await request.json();
@@ -168,10 +154,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     vat_number,
     design_files,
     country,
+    WC_STORES,
+    CRM_QUOTE_SECRET,
   );
 
-  // Save quote to D1 as well
-  const runtime = (locals as any).runtime;
   const db = runtime?.env?.CUSTOMERS_DB;
 
   if (!db) {

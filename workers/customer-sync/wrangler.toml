@@ -7,5 +7,4 @@ binding = "CUSTOMERS_DB"
 database_name = "hercules-customers"
 database_id = "d1177b06-ba2d-4a47-9186-be36946f7dbe"
 
-[vars]
-WEBHOOK_SECRET = "hercules-customer-sync-secret-2026"
+# WEBHOOK_SECRET is set via `wrangler secret put WEBHOOK_SECRET`
