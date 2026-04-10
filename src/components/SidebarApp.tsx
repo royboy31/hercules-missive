@@ -45,8 +45,6 @@ export default function SidebarApp() {
   const [regions, setRegions] = useState<Record<string, RegionMatch>>({});
   const [regionsLoading, setRegionsLoading] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
-  const [creatingUser, setCreatingUser] = useState(false);
-  const [createUserError, setCreateUserError] = useState<string | null>(null);
 
   // Missive integration
   useEffect(() => {
@@ -265,50 +263,21 @@ export default function SidebarApp() {
         </>
       )}
 
-      {/* Create Quotation button */}
+      {/* Proceed to products (virtual — no WC customer creation yet) */}
       <button
-        disabled={!selectedRegion || creatingUser}
-        onClick={async () => {
+        disabled={!selectedRegion}
+        onClick={() => {
           if (!selectedRegion) return;
-          const match = regions[selectedRegion];
-          if (match?.found) {
-            setScreen({ type: 'products', email: screen.email, region: selectedRegion });
-          } else {
-            // Create user on the selected region first
-            setCreatingUser(true);
-            setCreateUserError(null);
-            try {
-              const resp = await fetch('/api/wc/customers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ region: selectedRegion, email: screen.email, first_name: screen.name?.split(' ')[0] || '', last_name: screen.name?.split(' ').slice(1).join(' ') || '' }),
-              });
-              const data = await resp.json();
-              if (resp.ok && !data.error) {
-                // Update regions state so green dot appears
-                setRegions((prev) => ({ ...prev, [selectedRegion]: { found: true, first_name: data.first_name || screen.name?.split(' ')[0] || '', last_name: data.last_name || '', company: data.company || '', wc_customer_id: data.wc_customer_id } }));
-                setScreen({ type: 'products', email: screen.email, region: selectedRegion });
-              } else {
-                setCreateUserError(data.error || 'Failed to create customer');
-              }
-            } catch (err: any) {
-              setCreateUserError(err.message || 'Network error');
-            } finally {
-              setCreatingUser(false);
-            }
-          }
+          setScreen({ type: 'products', email: screen.email, region: selectedRegion });
         }}
         className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[14px] font-[Jost,sans-serif] font-semibold text-white transition-all cursor-pointer ${
-          selectedRegion && !creatingUser
+          selectedRegion
             ? 'bg-[#10c99e] hover:bg-[#0db88e]'
             : 'bg-gray-300 cursor-not-allowed'
         }`}
       >
-        {creatingUser ? 'Creating customer...' : selectedRegion && !regions[selectedRegion]?.found ? `Create Customer & ${mode === 'order' ? 'Order' : 'Quotation'} (${selectedRegion})` : mode === 'order' ? 'Create Order' : 'Create Quotation'}
+        {mode === 'order' ? 'Create Order' : 'Create Quotation'}
       </button>
-      {createUserError && (
-        <div className="mt-2 text-[12px] text-red-500 bg-red-50 rounded-md px-3 py-2">{createUserError}</div>
-      )}
     </div>
   );
 }

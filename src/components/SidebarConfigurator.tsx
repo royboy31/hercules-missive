@@ -117,15 +117,36 @@ function decodeHtml(html: string): string {
 
 // === Component ===
 
+export interface CartItemData {
+  productId: number;
+  productName: string;
+  variationId: number;
+  quantity: number;
+  pricePerPiece: number;
+  lineTotal: number;
+  taxPercent: number;
+  setupFee: string;
+  shipping: string;
+  leadTime: string;
+  selections: Record<string, string>;
+  currencySymbol: string;
+  imageUrl: string;
+  conditionalPrices: Array<{ qty: number | string; price: number | string }>;
+  minQty: number;
+  maxQty: number;
+  isManualPrice: boolean;
+}
+
 interface Props {
   productId: number;
   productName: string;
   region: string;
   customerEmail?: string;
   mode?: 'quote' | 'order';
+  onAddToCart?: (item: CartItemData) => void;
 }
 
-export default function SidebarConfigurator({ productId, productName, region, customerEmail, mode = 'quote' }: Props) {
+export default function SidebarConfigurator({ productId, productName, region, customerEmail, mode = 'quote', onAddToCart }: Props) {
   const [config, setConfig] = useState<ProductConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,6 +205,43 @@ export default function SidebarConfigurator({ productId, productName, region, cu
     }),
     [config, attributeKeys]
   );
+
+  // Get available terms for an attribute, filtered by what variations actually exist
+  // given the already-selected attributes from prior steps
+  const getAvailableTerms = (attrKey: string, visibleIndex: number): TermInfo[] => {
+    if (!config) return [];
+    const attr = config.attributes[attrKey];
+    if (!attr) return [];
+
+    // Collect selected attributes from prior steps only
+    const priorSelections: Record<string, string> = {};
+    for (let i = 0; i < visibleIndex; i++) {
+      const priorKey = visibleAttributeKeys[i];
+      if (selectedAttributes[priorKey]) {
+        priorSelections[priorKey] = selectedAttributes[priorKey];
+      }
+    }
+
+    // If no prior selections, show all terms
+    if (Object.keys(priorSelections).length === 0) return attr.terms;
+
+    // Filter terms to only those that have at least one matching variation
+    return attr.terms.filter(term => {
+      return config.variations.some(v => {
+        // Check this term matches
+        const normalizedAttrKey = attrKey.replace('attribute_', '');
+        const variationValue = v.attributes[attrKey] || v.attributes[`attribute_${normalizedAttrKey}`] || v.attributes[normalizedAttrKey];
+        if (variationValue !== term.slug) return false;
+
+        // Check all prior selections match
+        return Object.entries(priorSelections).every(([priorKey, priorValue]) => {
+          const normalizedPriorKey = priorKey.replace('attribute_', '');
+          const vVal = v.attributes[priorKey] || v.attributes[`attribute_${normalizedPriorKey}`] || v.attributes[normalizedPriorKey];
+          return vVal === priorValue;
+        });
+      });
+    });
+  };
 
   const isAttributeVisible = (attrKey: string, index: number): boolean => {
     if (!config) return false;
@@ -257,12 +315,16 @@ export default function SidebarConfigurator({ productId, productName, region, cu
 
   const priceInfo = useMemo(() => {
     if (!matchedVariation || quantitySelected <= 0) return null;
+    // If quantity is beyond pricing scope, return zero prices (user must enter manually)
+    if (quantitySelected > quantityRange.max) {
+      return { pricePerPiece: 0, totalExclVat: 0, totalInclVat: 0, taxPercent: config?.tax_percent || 19, leadTime: matchedVariation.lead_time || '5 Weeks', outOfScope: true };
+    }
     const pp = Math.round(getInterpolatedPriceWithAddons(matchedVariation.conditional_prices, quantitySelected, visibleAddons, selectedAddons) * 100) / 100;
     const net = Math.round(pp * quantitySelected * 100) / 100;
     const tax = config ? 1 + config.tax_percent / 100 : 1.19;
     const gross = Math.round(net * tax * 100) / 100;
-    return { pricePerPiece: pp, totalExclVat: net, totalInclVat: gross, taxPercent: config?.tax_percent || 19, leadTime: matchedVariation.lead_time || '5 Weeks' };
-  }, [matchedVariation, quantitySelected, visibleAddons, selectedAddons, config]);
+    return { pricePerPiece: pp, totalExclVat: net, totalInclVat: gross, taxPercent: config?.tax_percent || 19, leadTime: matchedVariation.lead_time || '5 Weeks', outOfScope: false };
+  }, [matchedVariation, quantitySelected, visibleAddons, selectedAddons, config, quantityRange.max]);
 
   const currencySymbol = config ? decodeHtml(config.currency_symbol) : '\u20AC';
 
@@ -307,10 +369,19 @@ export default function SidebarConfigurator({ productId, productName, region, cu
     setMaxVisibleStep(stepIndex + 1);
   };
 
+  // Whether quantity is outside pricing scope (beyond max tier)
+  const isOutOfScopeQty = quantitySelected > quantityRange.max;
+
   const handleQuantityConfirm = () => {
-    if (tempQuantity >= quantityRange.min && tempQuantity <= quantityRange.max) {
+    if (tempQuantity >= 1) {
       setQuantitySelected(tempQuantity);
       setMaxVisibleStep(quantityStepIndex + 1);
+      // If quantity is beyond pricing tiers, force blank price for manual entry
+      if (tempQuantity > quantityRange.max) {
+        setPricePerPieceOverride('');
+        setTotalNetOverride('');
+        setTotalGrossOverride('');
+      }
     }
   };
 
@@ -326,16 +397,18 @@ export default function SidebarConfigurator({ productId, productName, region, cu
     if (addon.display_type === 'multiple_choise') return Array.isArray(value) && value.length > 0;
     return !!value;
   });
-  const canAddToQuote = allAttributesSelected && allAddonsSelected && quantitySelected > 0 && matchedVariation;
+  // When out of scope, price per piece must be manually entered (non-empty and valid number)
+  const hasValidPrice = priceInfo?.outOfScope
+    ? (pricePerPieceOverride !== null && pricePerPieceOverride !== '' && !isNaN(parseFloat(pricePerPieceOverride)) && parseFloat(pricePerPieceOverride) > 0)
+    : true;
+  const canAddToQuote = allAttributesSelected && allAddonsSelected && quantitySelected > 0 && matchedVariation && hasValidPrice;
 
   const handleSubmit = async () => {
     if (!canAddToQuote || !priceInfo || !config || !matchedVariation) return;
-    setQuoteSubmitting(true);
-    setQuoteResult(null);
 
-    const finalPricePerPiece = pricePerPieceOverride ? parseFloat(pricePerPieceOverride) : priceInfo.pricePerPiece;
-    const finalTotalNet = totalNetOverride ? parseFloat(totalNetOverride) : priceInfo.totalExclVat;
-    const finalTotalGross = totalGrossOverride ? parseFloat(totalGrossOverride) : priceInfo.totalInclVat;
+    const finalPricePerPiece = pricePerPieceOverride && pricePerPieceOverride !== '' ? parseFloat(pricePerPieceOverride) : priceInfo.pricePerPiece;
+    const finalTotalNet = totalNetOverride && totalNetOverride !== '' ? parseFloat(totalNetOverride) : (finalPricePerPiece * quantitySelected);
+    const finalTotalGross = totalGrossOverride && totalGrossOverride !== '' ? parseFloat(totalGrossOverride) : (finalTotalNet * taxMultiplier);
 
     // Build readable selections
     const selections: Record<string, string> = {};
@@ -350,6 +423,51 @@ export default function SidebarConfigurator({ productId, productName, region, cu
       selections[addon.name] = Array.isArray(val) ? val.join(', ') : val;
     }
 
+    // Check if price was manually changed (different from calculated price)
+    // Only hide comparison table if price is actually different, not just because user typed in the field
+    const calculatedPrice = priceInfo.pricePerPiece;
+    const isManualPrice = pricePerPieceOverride !== null &&
+                          pricePerPieceOverride !== '' &&
+                          Math.abs(parseFloat(pricePerPieceOverride) - calculatedPrice) > 0.01;
+
+    // V2 cart mode: return data to parent instead of submitting
+    if (onAddToCart) {
+      onAddToCart({
+        productId,
+        productName,
+        variationId: matchedVariation.variation_id,
+        quantity: quantitySelected,
+        pricePerPiece: finalPricePerPiece,
+        lineTotal: finalTotalNet,
+        taxPercent: priceInfo.taxPercent,
+        setupFee: setupFeeOverride ?? 'Free',
+        shipping: shippingOverride ?? 'Free',
+        leadTime: priceInfo.leadTime,
+        selections,
+        currencySymbol,
+        imageUrl: matchedVariation.image?.url || '',
+        // Send conditional_prices WITH addon prices included for comparison table
+        conditionalPrices: (matchedVariation.conditional_prices || []).map((cp: any) => {
+          const tierQty = parseFloatSafe(cp.qty);
+          const basePrice = parseFloatSafe(cp.price);
+          let addonPrice = 0;
+          for (const addon of visibleAddons) {
+            if (selectedAddons[addon.id]) {
+              addonPrice += getAddonPriceAtTierQty(addon, selectedAddons[addon.id], tierQty);
+            }
+          }
+          return { qty: tierQty, price: Math.round((basePrice + addonPrice) * 100) / 100 };
+        }),
+        minQty: quantityRange.min,
+        maxQty: quantityRange.max,
+        isManualPrice,
+      });
+      return;
+    }
+
+    setQuoteSubmitting(true);
+    setQuoteResult(null);
+
     const lineItem = {
       product_id: productId,
       product_name: productName,
@@ -363,9 +481,41 @@ export default function SidebarConfigurator({ productId, productName, region, cu
       shipping: shippingOverride ?? 'Free',
       lead_time: priceInfo.leadTime,
       selections,
+      image_url: matchedVariation.image?.url || '',
+      // Send BASE conditional_prices (without addon extras) - Pearl adds addon prices itself
+      // If price was manually entered, send empty array to hide comparison table in email/PDF
+      conditional_prices: isManualPrice ? [] : (matchedVariation.conditional_prices || []).map((cp: any) => ({
+        qty: parseFloatSafe(cp.qty),
+        price: parseFloatSafe(cp.price),
+      })),
     };
 
     try {
+      // Create WC customer if they don't exist on this region yet
+      if (customerEmail) {
+        const lookupResp = await fetch(`/api/wc/customers?email=${encodeURIComponent(customerEmail)}`);
+        const lookupData = await lookupResp.json();
+        const regionData = lookupData?.regions?.[region];
+        if (!regionData?.found) {
+          const createResp = await fetch('/api/wc/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              region,
+              email: customerEmail,
+              first_name: '',
+              last_name: '',
+            }),
+          });
+          const createData = await createResp.json();
+          if (!createResp.ok && !createData.already_exists) {
+            setQuoteResult({ success: false, error: createData.error || 'Failed to create customer' });
+            setQuoteSubmitting(false);
+            return;
+          }
+        }
+      }
+
       if (mode === 'order') {
         const resp = await fetch('/api/wc/orders', {
           method: 'POST',
@@ -482,7 +632,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                 {/* Image Selector */}
                 {attr.display_type === 'image_selector' && (
                   <div className="kd-image-selector" style={{ display: 'flex', flexFlow: 'row wrap', gap: '20px' }}>
-                    {attr.terms.map(term => (
+                    {getAvailableTerms(attrKey, visibleIndex).map(term => (
                       <div
                         key={term.slug}
                         className="kd-image-selector-col"
@@ -517,7 +667,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                     style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #ddd' }}
                   >
                     <option value="">Select an option</option>
-                    {attr.terms.map(term => (
+                    {getAvailableTerms(attrKey, visibleIndex).map(term => (
                       <option key={term.slug} value={term.slug}>{term.name}</option>
                     ))}
                   </select>
@@ -526,7 +676,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                 {/* Select Boxes */}
                 {attr.display_type === 'select_boxes' && (
                   <div className="box-selector" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    {attr.terms.map(term => (
+                    {getAvailableTerms(attrKey, visibleIndex).map(term => (
                       <div
                         key={term.slug}
                         className="box-selector-item"
@@ -754,36 +904,26 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                   );
                 })}
 
-              {/* Max quantity+ Contact option */}
-              <label className="kd-radio-option kd-contact-option">
-                <div>
-                  <input type="radio" name="qty_option" checked={false} onChange={() => {}} />
-                  <span>{quantityRange.max}+</span>
-                </div>
-                <div className="kd-radio-meta kd-contact-meta">
-                  <button type="button" className="step-contact">CONTACT US</button>
-                </div>
-              </label>
-
-              {/* Custom quantity slider */}
+              {/* Custom quantity input */}
               <div className="range-wrapper">
-                <h4 className="specific-qty-title">Or choose a specific quantity</h4>
+                <h4 className="specific-qty-title">Or enter a specific quantity</h4>
 
+                {/* Slider only shown within tier range */}
                 <div className="kd-range-slider-container">
                   <div
                     className="kd-qty-display"
                     style={{
-                      left: `calc(${((tempQuantity - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100}% + ${8 - ((tempQuantity - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 16}px)`
+                      left: `calc(${Math.min(100, Math.max(0, ((Math.min(tempQuantity, quantityRange.max) - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100))}% + ${8 - Math.min(100, Math.max(0, ((Math.min(tempQuantity, quantityRange.max) - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100)) / 100 * 16}px)`
                     }}
                   >{tempQuantity}</div>
                   <input
                     type="range"
                     min={quantityRange.min}
                     max={quantityRange.max}
-                    value={tempQuantity}
+                    value={Math.min(tempQuantity, quantityRange.max)}
                     onChange={e => setTempQuantity(parseInt(e.target.value))}
                     style={{
-                      background: `linear-gradient(to right, #253461 0%, #253461 ${((tempQuantity - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100}%, #E3E3E3 ${((tempQuantity - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100}%, #E3E3E3 100%)`
+                      background: `linear-gradient(to right, #253461 0%, #253461 ${Math.min(100, ((Math.min(tempQuantity, quantityRange.max) - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100)}%, #E3E3E3 ${Math.min(100, ((Math.min(tempQuantity, quantityRange.max) - quantityRange.min) / (quantityRange.max - quantityRange.min)) * 100)}%, #E3E3E3 100%)`
                     }}
                   />
                   <div className="kd-range-ticks">
@@ -803,17 +943,21 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                   <input
                     type="number"
                     className="kd-qty-input"
-                    min={quantityRange.min}
-                    max={quantityRange.max}
+                    min={1}
                     value={tempQuantity}
-                    onChange={e => setTempQuantity(parseInt(e.target.value) || quantityRange.min)}
+                    onChange={e => setTempQuantity(parseInt(e.target.value) || 1)}
                   />
-                  <button type="button" className="kd-round-btn" onClick={() => setTempQuantity(prev => Math.min(quantityRange.max, prev + 1))}>+</button>
-                  <button type="button" className="kd-round-btn" onClick={() => setTempQuantity(prev => Math.max(quantityRange.min, prev - 1))}>-</button>
+                  <button type="button" className="kd-round-btn" onClick={() => setTempQuantity(prev => prev + 1)}>+</button>
+                  <button type="button" className="kd-round-btn" onClick={() => setTempQuantity(prev => Math.max(1, prev - 1))}>-</button>
                   <button type="button" className="kd-verify-qty-btn" onClick={handleQuantityConfirm}>
                     CONFIRM
                   </button>
                 </div>
+                {tempQuantity > quantityRange.max && (
+                  <p style={{ fontSize: '12px', color: '#b45309', marginTop: '8px' }}>
+                    Quantity exceeds pricing tiers — you will need to enter the price manually.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -824,6 +968,11 @@ export default function SidebarConfigurator({ productId, productName, region, cu
       {priceInfo && quantitySelected > 0 && (
         <div className="variation-summary">
           <h3 className="your-offer-title">{quantityStepIndex + 2}. Your offer</h3>
+          {priceInfo.outOfScope && (
+            <p style={{ fontSize: '13px', color: '#b45309', marginBottom: '10px', padding: '8px 12px', background: '#fef3c7', borderRadius: '8px' }}>
+              Quantity ({quantitySelected}) is outside pricing tiers. Please enter the price per piece manually.
+            </p>
+          )}
           <table className="offer-table">
             <tbody>
               <tr><td>Shipping</td><td className="kd-free-value"><input type="text" className="kd-editable-field" value={shippingOverride ?? 'Free'} onChange={e => setShippingOverride(e.target.value)} /></td></tr>
@@ -836,19 +985,26 @@ export default function SidebarConfigurator({ productId, productName, region, cu
               <tr>
                 <td>All-inclusive price per piece</td>
                 <td className="kd-price-value">
-                  <input type="text" className="kd-editable-field" value={pricePerPieceOverride ?? priceInfo.pricePerPiece.toFixed(2)} onChange={e => handlePricePerPieceChange(e.target.value)} /> {currencySymbol} (net)
+                  <input
+                    type="text"
+                    className="kd-editable-field"
+                    value={pricePerPieceOverride ?? (priceInfo.outOfScope ? '' : priceInfo.pricePerPiece.toFixed(2))}
+                    onChange={e => handlePricePerPieceChange(e.target.value)}
+                    placeholder={priceInfo.outOfScope ? 'Enter price' : ''}
+                    style={priceInfo.outOfScope && (!pricePerPieceOverride || pricePerPieceOverride === '') ? { borderColor: '#f59e0b', background: '#fffbeb' } : {}}
+                  /> {currencySymbol} (net)
                 </td>
               </tr>
               <tr>
                 <td>Total (net)</td>
                 <td className="kd-total-value">
-                  <input type="text" className="kd-editable-field" value={totalNetOverride ?? priceInfo.totalExclVat.toFixed(2)} onChange={e => handleTotalNetChange(e.target.value)} /> {currencySymbol}
+                  <input type="text" className="kd-editable-field" value={totalNetOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalExclVat.toFixed(2))} onChange={e => handleTotalNetChange(e.target.value)} placeholder={priceInfo.outOfScope ? '—' : ''} /> {currencySymbol}
                 </td>
               </tr>
               <tr>
                 <td>Total (incl. {priceInfo.taxPercent}% VAT)</td>
                 <td>
-                  <input type="text" className="kd-editable-field" value={totalGrossOverride ?? priceInfo.totalInclVat.toFixed(2)} onChange={e => handleTotalGrossChange(e.target.value)} /> {currencySymbol}
+                  <input type="text" className="kd-editable-field" value={totalGrossOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalInclVat.toFixed(2))} onChange={e => handleTotalGrossChange(e.target.value)} placeholder={priceInfo.outOfScope ? '—' : ''} /> {currencySymbol}
                 </td>
               </tr>
               <tr>
@@ -871,8 +1027,8 @@ export default function SidebarConfigurator({ productId, productName, region, cu
         </div>
       )}
 
-      {/* Quote name */}
-      {priceInfo && quantitySelected > 0 && (
+      {/* Quote name — only show when submitting directly (not in cart mode) */}
+      {!onAddToCart && priceInfo && quantitySelected > 0 && (
         <div className="kd-quote-name-wrapper">
           <label>Quote name</label>
           <input type="text" placeholder={productName} value={quoteName} onChange={e => setQuoteName(e.target.value)} />
@@ -881,9 +1037,9 @@ export default function SidebarConfigurator({ productId, productName, region, cu
       <div className="kd-action-btns-wrapper">
         <div className="kd-single-action-btn">
           <button type="button" disabled={!canAddToQuote || quoteSubmitting} onClick={handleSubmit}>
-            {quoteSubmitting ? 'Creating...' : mode === 'order' ? 'Create Order' : 'Create Quote'}
+            {onAddToCart ? (mode === 'order' ? 'Add to Order' : 'Add to Quote') : quoteSubmitting ? 'Creating...' : mode === 'order' ? 'Create Order' : 'Create Quote'}
           </button>
-          <small>{mode === 'order' ? 'Create a WooCommerce order' : 'Generate a quotation for the customer'}</small>
+          {!onAddToCart && <small>{mode === 'order' ? 'Create a WooCommerce order' : 'Generate a quotation for the customer'}</small>}
         </div>
         {quoteResult && (
           <div style={{ marginTop: '10px', padding: '10px 15px', borderRadius: '8px', fontSize: '13px', background: quoteResult.success ? '#e6faf3' : '#fde8e8', color: quoteResult.success ? '#0a7d5a' : '#dc3545' }}>

@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, line_items, notes, status: orderStatus } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, payment_method, design_requested, design_message, design_files } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -113,21 +113,64 @@ export const POST: APIRoute = async ({ request, locals }) => {
   });
 
   // Build WC order payload
+  const isPaymentLink = payment_method === 'payment_link';
   const orderPayload: any = {
-    status: orderStatus || 'processing',
+    status: isPaymentLink ? 'pending' : (orderStatus || 'processing'),
+    payment_method: isPaymentLink ? '' : 'bacs',
+    payment_method_title: isPaymentLink ? '' : 'Direct Bank Transfer',
     customer_id: wcCustomerId,
     billing: {
       first_name: firstName,
       last_name: lastName,
       email: customer_email.toLowerCase().trim(),
       company: company || '',
+      phone: phone || '',
+      country: country || '',
     },
     line_items: wcLineItems,
-    set_paid: true,
+    set_paid: !isPaymentLink,
+    meta_data: [] as Array<{ key: string; value: string }>,
   };
+
+  // Add VAT number as order meta
+  if (vat_number) {
+    orderPayload.meta_data.push({ key: '_billing_vat_number', value: vat_number });
+    orderPayload.meta_data.push({ key: '_vat_number', value: vat_number });
+  }
+
+  // Add customer type as order meta
+  if (customer_type) {
+    orderPayload.meta_data.push({ key: '_customer_type', value: customer_type });
+  }
+
+  // Add design request info as order meta
+  if (design_requested) {
+    orderPayload.meta_data.push({ key: '_design_requested', value: 'yes' });
+    if (design_message) {
+      orderPayload.meta_data.push({ key: '_design_message', value: design_message });
+    }
+    if (Array.isArray(design_files) && design_files.length > 0) {
+      orderPayload.meta_data.push({
+        key: '_design_files',
+        value: JSON.stringify(design_files),
+      });
+    }
+  }
 
   if (notes) {
     orderPayload.customer_note = notes;
+  }
+
+  // Build a note with design info for visibility in WP admin
+  if (design_requested) {
+    const designNote = [
+      'Design Request from CRM:',
+      design_message ? `Message: ${design_message}` : '',
+      ...(Array.isArray(design_files) ? design_files.map((f: any) => `File: ${f.name} — ${f.url}`) : []),
+    ].filter(Boolean).join('\n');
+    if (designNote) {
+      orderPayload.customer_note = [notes, designNote].filter(Boolean).join('\n\n');
+    }
   }
 
   const auth = btoa(`${store.ck}:${store.cs}`);
@@ -152,13 +195,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }, resp.status);
     }
 
+    // For payment link orders: keep as pending and send Customer Invoice email
+    // (which has the checkout payment URL so customer can pay by card)
+    let finalStatus = data.status;
+    let paymentUrl = data.payment_url || null;
+    if (isPaymentLink && data.id) {
+      try {
+        await fetch(`${store.url}/wp-json/hercules/v1/send-payment-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CRM-Secret': 'hercules-crm-quote-secret-2026',
+          },
+          body: JSON.stringify({ order_id: data.id }),
+        });
+      } catch {
+        // Non-critical — order was created, email just didn't trigger
+      }
+    }
+
     return json({
       success: true,
       order_id: data.id,
       order_number: data.number,
-      order_status: data.status,
+      order_status: finalStatus,
       order_total: data.total,
       order_url: `${store.url}/wp-admin/post.php?post=${data.id}&action=edit`,
+      payment_url: paymentUrl,
       region,
     }, 201);
   } catch (err: any) {

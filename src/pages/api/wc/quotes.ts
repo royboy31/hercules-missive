@@ -27,7 +27,8 @@ function json(data: unknown, status = 200) {
   });
 }
 
-const DEFAULT_TAX: Record<string, number> = { DE: 19, UK: 20, FR: 20 };
+// Fallback tax rates — only used if frontend doesn't supply a rate
+const FALLBACK_TAX: Record<string, number> = { DE: 19, UK: 20, FR: 20 };
 
 /**
  * Create a quote_request on any region via the mu-plugin REST endpoint
@@ -43,6 +44,14 @@ async function createQuoteRequest(
   totalGross?: number,
   taxPercent?: number,
   quoteName?: string,
+  customerType?: string,
+  designRequested?: boolean,
+  designMessage?: string,
+  deliveryEstimate?: string,
+  phone?: string,
+  vatNumber?: string,
+  designFiles?: { name: string; url: string }[],
+  country?: string,
 ): Promise<{ success: boolean; quote_id?: number; quote_url?: string; pdf_url?: string; email_sent?: boolean; error?: string }> {
   const store = WC_STORES[region];
   if (!store) return { success: false, error: `Unknown region: ${region}` };
@@ -59,9 +68,9 @@ async function createQuoteRequest(
     price_per_piece: item.price_per_piece || 0,
     custom_price: item.price_per_piece || 0,
     selections: item.selections || {},
-    addons: item.selections || {},
+    addons: {},
     addon_price_per_piece: 0,
-    min_qty: item.quantity,
+    min_qty: item.min_qty || item.quantity,
     conditional_prices: item.conditional_prices || [],
     image_url: item.image_url || '',
   }));
@@ -71,14 +80,20 @@ async function createQuoteRequest(
     first_name: firstName,
     surname,
     company: company || '',
-    customer_type: company ? 'company' : 'individual',
-    country: region,
+    customer_type: customerType || (company ? 'company' : 'individual'),
+    phone: phone || '',
+    vat_number: vatNumber || '',
+    country: country || region,
     products,
     subtotal: totalNet || 0,
-    tax_percent: taxPercent || DEFAULT_TAX[region] || 20,
+    tax_percent: taxPercent || FALLBACK_TAX[region] || 20,
     total: totalGross || 0,
     notes: notes || '',
     quotation_name: quoteName || '',
+    delivery_estimate: deliveryEstimate || '',
+    design_requested: designRequested || false,
+    design_message: designMessage || '',
+    design_files: designFiles || [],
     created_by: 'CRM',
   };
 
@@ -122,7 +137,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, line_items, total, currency, notes, created_by, quote_name } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, total, currency, notes, created_by, quote_name, design_requested, design_message, design_files, delivery_estimate, phone, vat_number, country, tax_percent } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -131,6 +146,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const items = Array.isArray(line_items) ? line_items : JSON.parse(line_items);
   const firstItem = items[0] || {};
 
+  // Calculate subtotal from all items if not provided in body
+  const calculatedSubtotal = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total_net) || 0), 0);
+
   const siteResult = await createQuoteRequest(
     region,
     items,
@@ -138,10 +156,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
     customer_name,
     company,
     notes,
-    firstItem.total_net || body.subtotal || 0,
-    total || firstItem.total_gross || 0,
-    firstItem.tax_percent || DEFAULT_TAX[region] || 20,
+    body.subtotal || calculatedSubtotal || 0,
+    total || body.subtotal * (1 + (tax_percent || FALLBACK_TAX[region] || 20) / 100) || 0,
+    tax_percent || firstItem.tax_percent || FALLBACK_TAX[region] || 20,
     quote_name,
+    customer_type,
+    design_requested,
+    design_message,
+    delivery_estimate,
+    phone,
+    vat_number,
+    design_files,
+    country,
   );
 
   // Save quote to D1 as well
