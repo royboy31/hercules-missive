@@ -1968,22 +1968,20 @@ export default function SidebarAppV3() {
             placeholder="Address line 2 (optional)"
             className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
           />
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={customer?.postcode || ''}
-              onChange={(e) => setCustomer((prev) => prev ? { ...prev, postcode: e.target.value } : prev)}
-              placeholder="Postcode"
-              className="w-1/4 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
-            />
-            <input
-              type="text"
-              value={customer?.city || ''}
-              onChange={(e) => setCustomer((prev) => prev ? { ...prev, city: e.target.value } : prev)}
-              placeholder="City"
-              className="w-3/4 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
-            />
-          </div>
+          <input
+            type="text"
+            value={customer?.city || ''}
+            onChange={(e) => setCustomer((prev) => prev ? { ...prev, city: e.target.value } : prev)}
+            placeholder="City"
+            className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+          />
+          <input
+            type="text"
+            value={customer?.postcode || ''}
+            onChange={(e) => setCustomer((prev) => prev ? { ...prev, postcode: e.target.value } : prev)}
+            placeholder="Postcode"
+            className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+          />
 
           {/* Payment method — only for orders */}
           {mode === 'order' && (
@@ -2730,26 +2728,24 @@ function CustomerEditForm({
               className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
             />
           )}
-          <div className="flex gap-2">
-            {onPostcodeChange && (
-              <input
-                type="text"
-                value={editPostcode || ''}
-                onChange={(e) => onPostcodeChange(e.target.value)}
-                placeholder="Postcode"
-                className="w-1/4 px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
-              />
-            )}
-            {onCityChange && (
-              <input
-                type="text"
-                value={editCity || ''}
-                onChange={(e) => onCityChange(e.target.value)}
-                placeholder="City"
-                className="w-3/4 px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
-              />
-            )}
-          </div>
+          {onCityChange && (
+            <input
+              type="text"
+              value={editCity || ''}
+              onChange={(e) => onCityChange(e.target.value)}
+              placeholder="City"
+              className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e] mb-2"
+            />
+          )}
+          {onPostcodeChange && (
+            <input
+              type="text"
+              value={editPostcode || ''}
+              onChange={(e) => onPostcodeChange(e.target.value)}
+              placeholder="Postcode"
+              className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
+            />
+          )}
         </>
       )}
       <textarea
