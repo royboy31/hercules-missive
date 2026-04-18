@@ -532,11 +532,17 @@ export default function SidebarAppV3() {
 
   const updateItem = (id: string, updates: { quantity: number; pricePerPiece: number }) => {
     setCart((prev) =>
-      prev.map((ci) =>
-        ci.id === id
-          ? { ...ci, quantity: updates.quantity, pricePerPiece: updates.pricePerPiece, lineTotal: updates.quantity * updates.pricePerPiece }
-          : ci
-      )
+      prev.map((ci) => {
+        if (ci.id !== id) return ci;
+        const priceChanged = Math.abs(ci.pricePerPiece - updates.pricePerPiece) > 0.001;
+        return {
+          ...ci,
+          quantity: updates.quantity,
+          pricePerPiece: updates.pricePerPiece,
+          lineTotal: updates.quantity * updates.pricePerPiece,
+          isManualPrice: ci.isManualPrice || priceChanged,
+        };
+      })
     );
   };
 
@@ -639,11 +645,12 @@ export default function SidebarAppV3() {
       // 1. Totals were manually overridden, OR
       // 2. This item's quantity is below its minimum, OR
       // 3. This item's quantity is above its maximum, OR
-      // 4. This item has a manually changed price (isManualPrice flag from configurator)
+      // 4. This item has a manually changed price (isManualPrice flag from configurator), OR
+      // 5. This item has a custom quantity (doesn't match any tier)
       const qtyBelowMin = item.minQty > 0 && item.quantity < item.minQty;
       const qtyAboveMax = item.maxQty > 0 && item.quantity > item.maxQty;
 
-      const hideComparison = hasTotalOverride || qtyBelowMin || qtyAboveMax || item.isManualPrice;
+      const hideComparison = hasTotalOverride || qtyBelowMin || qtyAboveMax || item.isManualPrice || item.isCustomQty;
 
       return {
         product_id: item.productId,
@@ -1967,14 +1974,14 @@ export default function SidebarAppV3() {
               value={customer?.postcode || ''}
               onChange={(e) => setCustomer((prev) => prev ? { ...prev, postcode: e.target.value } : prev)}
               placeholder="Postcode"
-              className="w-1/3 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
+              className="w-1/4 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
             />
             <input
               type="text"
               value={customer?.city || ''}
               onChange={(e) => setCustomer((prev) => prev ? { ...prev, city: e.target.value } : prev)}
               placeholder="City"
-              className="flex-1 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
+              className="w-3/4 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
             />
           </div>
 
@@ -2730,7 +2737,7 @@ function CustomerEditForm({
                 value={editPostcode || ''}
                 onChange={(e) => onPostcodeChange(e.target.value)}
                 placeholder="Postcode"
-                className="w-1/3 px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
+                className="w-1/4 px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
               />
             )}
             {onCityChange && (
@@ -2739,7 +2746,7 @@ function CustomerEditForm({
                 value={editCity || ''}
                 onChange={(e) => onCityChange(e.target.value)}
                 placeholder="City"
-                className="flex-1 px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
+                className="w-3/4 px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
               />
             )}
           </div>

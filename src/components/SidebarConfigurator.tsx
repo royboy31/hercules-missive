@@ -135,6 +135,7 @@ export interface CartItemData {
   minQty: number;
   maxQty: number;
   isManualPrice: boolean;
+  isCustomQty: boolean;
 }
 
 interface Props {
@@ -430,6 +431,10 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                           pricePerPieceOverride !== '' &&
                           Math.abs(parseFloat(pricePerPieceOverride) - calculatedPrice) > 0.01;
 
+    // Check if quantity is a custom value (doesn't match any tier quantity)
+    const tierQtys = (matchedVariation.conditional_prices || []).map((cp: any) => parseFloatSafe(cp.qty));
+    const isCustomQty = !tierQtys.includes(quantitySelected);
+
     // V2 cart mode: return data to parent instead of submitting
     if (onAddToCart) {
       onAddToCart({
@@ -461,6 +466,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
         minQty: quantityRange.min,
         maxQty: quantityRange.max,
         isManualPrice,
+        isCustomQty,
       });
       return;
     }
@@ -483,8 +489,8 @@ export default function SidebarConfigurator({ productId, productName, region, cu
       selections,
       image_url: matchedVariation.image?.url || '',
       // Send BASE conditional_prices (without addon extras) - Pearl adds addon prices itself
-      // If price was manually entered, send empty array to hide comparison table in email/PDF
-      conditional_prices: isManualPrice ? [] : (matchedVariation.conditional_prices || []).map((cp: any) => ({
+      // If price was manually entered or custom quantity used, send empty array to hide comparison table in email/PDF
+      conditional_prices: (isManualPrice || isCustomQty) ? [] : (matchedVariation.conditional_prices || []).map((cp: any) => ({
         qty: parseFloatSafe(cp.qty),
         price: parseFloatSafe(cp.price),
       })),

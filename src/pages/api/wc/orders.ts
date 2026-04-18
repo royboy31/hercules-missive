@@ -99,9 +99,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // Build WC order payload
   const isPaymentLink = payment_method === 'payment_link';
   const orderPayload: any = {
-    status: isPaymentLink ? 'pending' : (orderStatus || 'processing'),
+    status: 'pending',
     payment_method: isPaymentLink ? '' : 'bacs',
-    payment_method_title: isPaymentLink ? '' : 'Direct Bank Transfer',
+    payment_method_title: isPaymentLink ? '' : 'Manuelle Banküberweisung',
     customer_id: wcCustomerId,
     billing: {
       first_name: firstName,
@@ -111,10 +111,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
       phone: phone || '',
       country: country || '',
     },
+    shipping: {
+      first_name: firstName,
+      last_name: lastName,
+      company: company || '',
+      country: country || '',
+    },
     line_items: wcLineItems,
-    set_paid: !isPaymentLink,
+    set_paid: false,
     meta_data: [] as Array<{ key: string; value: string }>,
   };
+
+  // Flag CRM payment-link orders so the mu-plugin can inject bank details into the email
+  if (isPaymentLink) {
+    orderPayload.meta_data.push({ key: '_crm_payment_link', value: 'yes' });
+  }
 
   // Add VAT number as order meta
   if (vat_number) {
@@ -169,7 +180,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
       body: JSON.stringify(orderPayload),
     });
 
-    const data = await resp.json();
+    const rawText = await resp.text();
+    let data: any;
+    try {
+      // WC API may prepend HTML (e.g. from PDF invoice plugin) — strip it
+      // Look for JSON object pattern starting with {"
+      const jsonMatch = rawText.match(/\{"\w/);
+      const jsonStart = jsonMatch ? rawText.indexOf(jsonMatch[0]) : -1;
+      const cleanJson = jsonStart >= 0 ? rawText.slice(jsonStart) : rawText;
+      data = JSON.parse(cleanJson);
+    } catch {
+      return json({ success: false, error: `WooCommerce returned invalid response: ${rawText.slice(0, 300)}` }, 502);
+    }
 
     if (!resp.ok) {
       return json({
@@ -179,10 +201,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }, resp.status);
     }
 
-    // For payment link orders: keep as pending and send Customer Invoice email
-    // (which has the checkout payment URL so customer can pay by card)
     let finalStatus = data.status;
     let paymentUrl = data.payment_url || null;
+
+    // For bank transfer orders: transition pending → on-hold to trigger WC "On Hold" email
+    if (!isPaymentLink && data.id) {
+      try {
+        const updateResp = await fetch(`${store.url}/wp-json/wc/v3/orders/${data.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${auth}`,
+          },
+          body: JSON.stringify({ status: 'on-hold' }),
+        });
+        if (updateResp.ok) finalStatus = 'on-hold';
+      } catch {
+        // Non-critical — order was created, status update failed
+      }
+    }
+
+    // For payment link orders: send Customer Invoice email with pay link + bank details
     if (isPaymentLink && data.id) {
       try {
         await fetch(`${store.url}/wp-json/hercules/v1/send-payment-email`, {
