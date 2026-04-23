@@ -32,7 +32,7 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     if (search) {
       // Search endpoint returns { success, data: [{ id, title, slug, thumbnail, categories }] }
-      const res = await fetch(`${workerUrl}/search?q=${encodeURIComponent(search)}`);
+      const res = await fetch(`${workerUrl}/search?q=${encodeURIComponent(search)}&include_missive=true`);
       if (!res.ok) {
         return json({ error: `Product sync worker error: ${res.status}` }, res.status);
       }
@@ -47,7 +47,7 @@ export const GET: APIRoute = async ({ request }) => {
       return json({ region, items, total: items.length });
     } else {
       // Products endpoint returns array of { id, name, slug, categories (slugs), menu_order }
-      const res = await fetch(`${workerUrl}/products`);
+      const res = await fetch(`${workerUrl}/products?include_missive=true`);
       if (!res.ok) {
         return json({ error: `Product sync worker error: ${res.status}` }, res.status);
       }
