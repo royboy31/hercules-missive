@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 
 const PRODUCT_SYNC_WORKERS: Record<string, string> = {
   DE: 'https://hercules-product-sync.gilles-86d.workers.dev',
-  UK: 'https://hercules-product-sync-uk.gilles-86d.workers.dev',
+  UK: 'https://hercules-product-sync-uk-production.gilles-86d.workers.dev',
   FR: 'https://hercules-product-sync-fr-prod.gilles-86d.workers.dev',
 };
 
