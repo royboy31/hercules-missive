@@ -612,7 +612,7 @@ export default function SidebarAppV3() {
       const vat = (customer?.vatNumber || '').replace(/\s+/g, '').toUpperCase();
       if (!vat) return false;
       if (selectedRegion === 'DE') return true;
-      if (selectedRegion === 'FR') return /^FR[0-9A-Z]{2}\d{9}$/.test(vat);
+      if (selectedRegion === 'FR') return /^(FR[0-9A-Z]{2}\d{9}|LU\d{8})$/.test(vat); // FR: valid FR or LU VAT
       return false;
     })();
     // UK: ALWAYS use fallback VAT (20%) - ignore dynamicVatRate entirely
@@ -1053,7 +1053,7 @@ export default function SidebarAppV3() {
     const vat = (customer?.vatNumber || '').replace(/\s+/g, '').toUpperCase();
     if (!vat) return false;
     if (selectedRegion === 'DE') return true; // DE: any VAT → exempt
-    if (selectedRegion === 'FR') return /^FR[0-9A-Z]{2}\d{9}$/.test(vat); // FR: must be valid FR VAT
+    if (selectedRegion === 'FR') return /^(FR[0-9A-Z]{2}\d{9}|LU\d{8})$/.test(vat); // FR: valid FR or LU VAT
     return false;
   })();
   const vatPercent = isVatExempt ? 0 : baseVatPercent;
