@@ -63,9 +63,11 @@ function hercules_get_tax_countries() {
     global $wpdb;
 
     $rows = $wpdb->get_results(
-        "SELECT tax_rate_country AS country, tax_rate AS rate
+        "SELECT tax_rate_country AS country, MAX(tax_rate) AS rate
          FROM {$wpdb->prefix}woocommerce_tax_rates
          WHERE tax_rate_class = ''
+           AND tax_rate_country != ''
+         GROUP BY tax_rate_country
          ORDER BY tax_rate_country ASC",
         ARRAY_A
     );

@@ -61,7 +61,7 @@ function getAddonPriceAtTierQty(addon: AddonData, selectedValue: string | string
   const names = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
   let total = 0;
   for (const name of names) {
-    if (name === 'Keins' || name === 'None' || name === 'Aucun') continue;
+    if (name === 'Keine' || name === 'None' || name === 'Aucun') continue;
     const opt = addon.options.find(o => o.name === name);
     if (!opt?.price_table?.length) continue;
     const sorted = [...opt.price_table].map(p => ({ qty: parseFloatSafe(p.qty), price: parseFloatSafe(p.price) })).sort((a, b) => a.qty - b.qty);
@@ -266,9 +266,10 @@ export default function ProductConfigurator({ productId, productName, region, cu
     const finalTotalNet = totalNetOverride ? parseFloat(totalNetOverride) : priceInfo.totalExclVat;
     const finalTotalGross = totalGrossOverride ? parseFloat(totalGrossOverride) : priceInfo.totalInclVat;
     const selections: Record<string, string> = {};
-    for (const key of visibleAttributeKeys) { const attr = config.attributes[key]; const slug = selectedAttributes[key]; const term = attr.terms.find(t => t.slug === slug); selections[attr.display_title || key] = term?.name || slug; }
+    const variationAttributes: Record<string, string> = {};
+    for (const key of visibleAttributeKeys) { const attr = config.attributes[key]; const slug = selectedAttributes[key]; const term = attr.terms.find(t => t.slug === slug); const val = term?.name || slug; selections[attr.display_title || key] = val; variationAttributes[attr.display_title || key] = val; }
     for (const addon of visibleAddons) { const val = selectedAddons[addon.id]; selections[addon.name] = Array.isArray(val) ? val.join(', ') : val; }
-    const lineItem = { product_id: productId, product_name: productName, variation_id: matchedVariation.variation_id, quantity: quantitySelected, price_per_piece: finalPricePerPiece, total_net: finalTotalNet, total_gross: finalTotalGross, tax_percent: priceInfo.taxPercent, setup_fee: setupFeeOverride ?? 'Free', shipping: shippingOverride ?? 'Free', lead_time: priceInfo.leadTime, selections };
+    const lineItem = { product_id: productId, product_name: productName, variation_id: matchedVariation.variation_id, quantity: quantitySelected, price_per_piece: finalPricePerPiece, total_net: finalTotalNet, total_gross: finalTotalGross, tax_percent: priceInfo.taxPercent, setup_fee: setupFeeOverride ?? 'Free', shipping: shippingOverride ?? 'Free', lead_time: priceInfo.leadTime, selections, variation_attributes: variationAttributes };
     try {
       if (mode === 'order') {
         const resp = await fetch('/api/wc/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ region, customer_email: customerEmail || '', line_items: [lineItem], total: finalTotalGross, notes: quoteName || '' }) });
@@ -427,18 +428,17 @@ export default function ProductConfigurator({ productId, productName, region, cu
                   </select>
                 )}
                 {addon.display_type === 'multiple_choise' && Array.isArray(addon.options) && (() => {
+                  const noneValues = ['None', 'Keine', 'Aucun'];
                   const cur = Array.isArray(selectedValue) ? selectedValue : (selectedValue ? [selectedValue as string] : []);
-                  const isNoneChecked = cur.includes('None') || cur.includes('Keins') || cur.includes('Aucun');
                   const handleCb = (value: string, checked: boolean) => {
                     let ns: string[];
-                    if (value === 'None' || value === 'Keins' || value === 'Aucun') ns = checked ? [value] : [];
-                    else { const wn = cur.filter(v => v !== 'None' && v !== 'Keins' && v !== 'Aucun'); ns = checked ? [...wn, value] : wn.filter(v => v !== value); }
+                    if (noneValues.includes(value)) ns = checked ? [value] : [];
+                    else { const wn = cur.filter(v => !noneValues.includes(v)); ns = checked ? [...wn, value] : wn.filter(v => v !== value); }
                     setSelectedAddons(prev => ({ ...prev, [addon.id]: ns }));
                     if (ns.length > 0) setMaxVisibleStep(stepIndex + 1);
                   };
                   return (
                     <div className="kd-step-choises">
-                      <label style={{ display: 'block', marginBottom: '8px' }}><input type="checkbox" checked={isNoneChecked} onChange={e => handleCb('None', e.target.checked)} style={{ marginRight: '8px' }} />None</label>
                       {addon.options.map((option, i) => <label key={i} style={{ display: 'block', marginBottom: '8px' }}><input type="checkbox" checked={cur.includes(option.name)} onChange={e => handleCb(option.name, e.target.checked)} style={{ marginRight: '8px' }} />{option.name}</label>)}
                     </div>
                   );

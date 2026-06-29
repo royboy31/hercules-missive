@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS customers (
   last_name       TEXT,
   company         TEXT,
   phone           TEXT,
+  customer_type   TEXT DEFAULT 'individual',
   synced_at       TEXT,
   UNIQUE(region, wc_customer_id)
 );

@@ -17,6 +17,26 @@ function getCustomerMeta(customer: any, key: string): string {
   return entry?.value || '';
 }
 
+/** Resolve customer_type from WC API response, D1 cache, or heuristic (in priority order) */
+function resolveCustomerType(wcCustomer: any | null, d1Row: any | null, company: string, vatNum: string): string {
+  // 1. WC REST field (registered by hercules-customer-type-meta.php)
+  if (wcCustomer?.customer_type && wcCustomer.customer_type !== '') {
+    return wcCustomer.customer_type;
+  }
+  // 2. WC meta_data
+  if (wcCustomer) {
+    const meta = getCustomerMeta(wcCustomer, 'customer_type');
+    if (meta) return meta;
+  }
+  // 3. D1 stored value (if not legacy 'organization')
+  if (d1Row?.customer_type && d1Row.customer_type !== 'organization') {
+    return d1Row.customer_type;
+  }
+  // 4. Heuristic: has company/VAT → company, else individual
+  if (company || vatNum) return 'company';
+  return 'individual';
+}
+
 /**
  * Query a single WooCommerce store for a customer by email.
  * Returns the first matching customer or null.
@@ -130,7 +150,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         if (db) {
           try {
             const vatNum = getCustomerMeta(customer, 'billing_vat_number');
-            const hasCompanyOrVat = !!(customer.billing?.company || vatNum);
+            const ctResolved = resolveCustomerType(customer, null, customer.billing?.company || '', vatNum);
             await db
               .prepare(
                 `INSERT OR REPLACE INTO customers (region, wc_customer_id, email, first_name, last_name, company, phone, vat_number, customer_type, country, address_1, address_2, city, postcode, synced_at)
@@ -145,7 +165,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
                 customer.billing?.company || '',
                 customer.billing?.phone || '',
                 vatNum,
-                hasCompanyOrVat ? 'organization' : 'individual',
+                ctResolved,
                 customer.billing?.country || '',
                 customer.billing?.address_1 || '',
                 customer.billing?.address_2 || '',
@@ -179,7 +199,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         if (db) {
           try {
             const vatNum = getCustomerMeta(customer, 'billing_vat_number');
-            const hasCompanyOrVat = !!(customer.billing?.company || vatNum);
+            const ctResolved = resolveCustomerType(customer, d1Matches[code], customer.billing?.company || '', vatNum);
             // Preserve existing notes from D1
             const existingNotes = d1Matches[code]?.notes || '';
             await db
@@ -196,7 +216,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
                 customer.billing?.company || '',
                 customer.billing?.phone || '',
                 vatNum,
-                hasCompanyOrVat ? 'organization' : 'individual',
+                ctResolved,
                 customer.billing?.country || '',
                 customer.billing?.address_1 || '',
                 customer.billing?.address_2 || '',
@@ -233,7 +253,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     if (d1) {
       const vatNum = enriched ? getCustomerMeta(enriched, 'billing_vat_number') : (d1.vat_number || '');
       const company = enriched?.billing?.company || d1.company || '';
-      const hasCompanyOrVat = !!(company || vatNum);
+      const ctResolved = resolveCustomerType(enriched, d1, company, vatNum);
       regions[code] = {
         found: true,
         wc_customer_id: d1.wc_customer_id,
@@ -242,7 +262,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         company,
         phone: enriched?.billing?.phone || d1.phone,
         vat_number: vatNum,
-        customer_type: hasCompanyOrVat ? 'organization' : 'individual',
+        customer_type: ctResolved,
         country: enriched?.billing?.country || d1.country || '',
         address_1: enriched?.billing?.address_1 || d1.address_1 || '',
         address_2: enriched?.billing?.address_2 || d1.address_2 || '',
@@ -256,7 +276,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     } else if (live) {
       const vatNum = getCustomerMeta(live, 'billing_vat_number');
       const company = live.billing?.company || '';
-      const hasCompanyOrVat = !!(company || vatNum);
+      const ctResolved = resolveCustomerType(live, null, company, vatNum);
       regions[code] = {
         found: true,
         wc_customer_id: live.id,
@@ -265,7 +285,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         company,
         phone: live.billing?.phone || '',
         vat_number: vatNum,
-        customer_type: hasCompanyOrVat ? 'organization' : 'individual',
+        customer_type: ctResolved,
         country: live.billing?.country || '',
         address_1: live.billing?.address_1 || '',
         address_2: live.billing?.address_2 || '',
@@ -365,7 +385,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           data.billing?.company || company || '',
           data.billing?.phone || '',
           '',
-          company ? 'organization' : 'individual',
+          resolveCustomerType(data, null, company || '', ''),
           data.billing?.country || country || '',
           data.billing?.address_1 || address_1 || '',
           data.billing?.address_2 || address_2 || '',
@@ -406,7 +426,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, wc_customer_id, first_name, last_name, company, phone, vat_number, country, address_1, address_2, city, postcode, notes } = body;
+  const { region, wc_customer_id, first_name, last_name, company, phone, vat_number, customer_type, country, address_1, address_2, city, postcode, notes } = body;
 
   if (!region || !wc_customer_id) {
     return json({ error: 'region and wc_customer_id are required' }, 400);
@@ -434,10 +454,11 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   if (postcode !== undefined) billingUpdate.postcode = postcode;
   if (Object.keys(billingUpdate).length > 0) updatePayload.billing = billingUpdate;
 
-  // VAT number goes into WC meta_data
-  if (vat_number !== undefined) {
-    updatePayload.meta_data = [{ key: 'billing_vat_number', value: vat_number }];
-  }
+  // VAT number and customer_type go into WC meta_data
+  const metaUpdates: { key: string; value: string }[] = [];
+  if (vat_number !== undefined) metaUpdates.push({ key: 'billing_vat_number', value: vat_number });
+  if (customer_type !== undefined) metaUpdates.push({ key: 'customer_type', value: customer_type });
+  if (metaUpdates.length > 0) updatePayload.meta_data = metaUpdates;
 
   try {
     const resp = await fetch(`${store.url}/wp-json/wc/v3/customers/${wc_customer_id}`, {
@@ -457,7 +478,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
 
     const updatedVat = getCustomerMeta(data, 'billing_vat_number');
     const updatedCompany = data.billing?.company || '';
-    const hasCompanyOrVat = !!(updatedCompany || updatedVat);
+    const ctResolved = resolveCustomerType(data, null, updatedCompany, updatedVat);
 
     // Update D1 cache (including notes which is D1-only)
     const runtime = (locals as any).runtime;
@@ -472,7 +493,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
         const bindValues: any[] = [
           data.first_name || '', data.last_name || '',
           updatedCompany, data.billing?.phone || '',
-          updatedVat, hasCompanyOrVat ? 'organization' : 'individual',
+          updatedVat, ctResolved,
           data.billing?.country || '',
           data.billing?.address_1 || '',
           data.billing?.address_2 || '',
@@ -505,7 +526,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
       company: updatedCompany,
       phone: data.billing?.phone || '',
       vat_number: updatedVat,
-      customer_type: hasCompanyOrVat ? 'organization' : 'individual',
+      customer_type: ctResolved,
       country: data.billing?.country || '',
       address_1: data.billing?.address_1 || '',
       address_2: data.billing?.address_2 || '',

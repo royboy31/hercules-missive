@@ -61,7 +61,7 @@ function getAddonPriceAtTierQty(addon: AddonData, selectedValue: string | string
   const names = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
   let total = 0;
   for (const name of names) {
-    if (name === 'Keins' || name === 'None' || name === 'Aucun') continue;
+    if (name === 'Keine' || name === 'None' || name === 'Aucun') continue;
     const opt = addon.options.find((o) => o.name === name);
     if (!opt?.price_table?.length) continue;
     const sorted = [...opt.price_table].map((p) => ({ qty: parseFloatSafe(p.qty), price: parseFloatSafe(p.price) })).sort((a, b) => a.qty - b.qty);
@@ -129,6 +129,7 @@ export interface CartItemData {
   shipping: string;
   leadTime: string;
   selections: Record<string, string>;
+  variationAttributes?: Record<string, string>;
   currencySymbol: string;
   imageUrl: string;
   conditionalPrices: Array<{ qty: number | string; price: number | string }>;
@@ -413,11 +414,14 @@ export default function SidebarConfigurator({ productId, productName, region, cu
 
     // Build readable selections
     const selections: Record<string, string> = {};
+    const variationAttributes: Record<string, string> = {};
     for (const key of visibleAttributeKeys) {
       const attr = config.attributes[key];
       const slug = selectedAttributes[key];
       const term = attr.terms.find(t => t.slug === slug);
-      selections[attr.display_title || key] = term?.name || slug;
+      const val = term?.name || slug;
+      selections[attr.display_title || key] = val;
+      variationAttributes[attr.display_title || key] = val;
     }
     for (const addon of visibleAddons) {
       const val = selectedAddons[addon.id];
@@ -449,6 +453,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
         shipping: shippingOverride ?? 'Free',
         leadTime: priceInfo.leadTime,
         selections,
+        variationAttributes,
         currencySymbol,
         imageUrl: matchedVariation.image?.url || '',
         // Send conditional_prices WITH addon prices included for comparison table
@@ -788,15 +793,15 @@ export default function SidebarConfigurator({ productId, productName, region, cu
 
                 {/* Multiple Choice (checkboxes) */}
                 {addon.display_type === 'multiple_choise' && Array.isArray(addon.options) && (() => {
+                  const noneValues = ['None', 'Keine', 'Aucun'];
                   const currentSelected = Array.isArray(selectedValue) ? selectedValue : (selectedValue ? [selectedValue as string] : []);
-                  const isNoneChecked = currentSelected.includes('None') || currentSelected.includes('Keins') || currentSelected.includes('Aucun');
 
                   const handleCheckboxChange = (value: string, checked: boolean) => {
                     let newSelected: string[];
-                    if (value === 'None' || value === 'Keins' || value === 'Aucun') {
+                    if (noneValues.includes(value)) {
                       newSelected = checked ? [value] : [];
                     } else {
-                      const withoutNone = currentSelected.filter(v => v !== 'None' && v !== 'Keins' && v !== 'Aucun');
+                      const withoutNone = currentSelected.filter(v => !noneValues.includes(v));
                       newSelected = checked ? [...withoutNone, value] : withoutNone.filter(v => v !== value);
                     }
                     setSelectedAddons(prev => ({ ...prev, [addon.id]: newSelected }));
@@ -805,10 +810,6 @@ export default function SidebarConfigurator({ productId, productName, region, cu
 
                   return (
                     <div className="kd-step-choises">
-                      <label style={{ display: 'block', marginBottom: '8px' }}>
-                        <input type="checkbox" checked={isNoneChecked} onChange={(e) => handleCheckboxChange('None', e.target.checked)} style={{ marginRight: '8px' }} />
-                        None
-                      </label>
                       {addon.options.map((option, index) => (
                         <label key={index} style={{ display: 'block', marginBottom: '8px' }}>
                           <input type="checkbox" checked={currentSelected.includes(option.name)} onChange={(e) => handleCheckboxChange(option.name, e.target.checked)} style={{ marginRight: '8px' }} />

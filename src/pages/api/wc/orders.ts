@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, payment_method, design_requested, design_message, design_files } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, address1, address2, city, postcode, payment_method, partial_payment_percent, design_requested, design_message, design_files } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -77,9 +77,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Store selections/addons as meta data
+    // When variation_id is set, WooCommerce auto-stores variation attributes —
+    // skip selection entries whose values duplicate a variation attribute to avoid
+    // showing e.g. both "Format: 140x18cm" and "Choisissez le format: 140x18cm"
     const metaData: Array<{ key: string; value: string }> = [];
     if (item.selections) {
+      const variationValues = new Set<string>();
+      if (item.variation_id && item.variation_attributes) {
+        for (const val of Object.values(item.variation_attributes as Record<string, string>)) {
+          variationValues.add(String(val).toLowerCase().trim());
+        }
+      }
       for (const [key, value] of Object.entries(item.selections)) {
+        const normVal = String(value).toLowerCase().trim();
+        if (variationValues.has(normVal)) continue; // already captured by variation
         metaData.push({ key, value: String(value) });
       }
     }
@@ -98,10 +109,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Build WC order payload
   const isPaymentLink = payment_method === 'payment_link';
+  const bacsTitle: Record<string, string> = {
+    DE: 'Manuelle Banküberweisung',
+    UK: 'Direct bank transfer',
+    FR: 'Virement bancaire manuel',
+  };
   const orderPayload: any = {
     status: 'pending',
     payment_method: isPaymentLink ? '' : 'bacs',
-    payment_method_title: isPaymentLink ? '' : 'Manuelle Banküberweisung',
+    payment_method_title: isPaymentLink ? '' : (bacsTitle[region] ?? 'Bank transfer'),
     customer_id: wcCustomerId,
     billing: {
       first_name: firstName,
@@ -110,12 +126,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company: company || '',
       phone: phone || '',
       country: country || '',
+      address_1: address1 || '',
+      address_2: address2 || '',
+      city: city || '',
+      postcode: postcode || '',
     },
     shipping: {
       first_name: firstName,
       last_name: lastName,
       company: company || '',
       country: country || '',
+      address_1: address1 || '',
+      address_2: address2 || '',
+      city: city || '',
+      postcode: postcode || '',
     },
     line_items: wcLineItems,
     set_paid: false,
@@ -136,6 +160,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // Add customer type as order meta
   if (customer_type) {
     orderPayload.meta_data.push({ key: '_customer_type', value: customer_type });
+  }
+
+  // Add partial payment percentage as order meta
+  if (partial_payment_percent != null && partial_payment_percent >= 0 && partial_payment_percent < 100) {
+    orderPayload.meta_data.push({ key: '_partial_payment_percent', value: String(partial_payment_percent) });
   }
 
   // Add design request info as order meta
@@ -204,8 +233,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let finalStatus = data.status;
     let paymentUrl = data.payment_url || null;
 
-    // For bank transfer orders: transition pending → on-hold to trigger WC "On Hold" email
-    if (!isPaymentLink && data.id) {
+    // 0% prepayment: no payment needed → go straight to processing (any payment method)
+    // Otherwise: bank transfer orders → on-hold to trigger WC "On Hold" email
+    const isZeroPrepayment = partial_payment_percent != null && partial_payment_percent === 0;
+    const targetStatus = isZeroPrepayment ? 'processing' : (!isPaymentLink ? 'on-hold' : null);
+    if (targetStatus && data.id) {
       try {
         const updateResp = await fetch(`${store.url}/wp-json/wc/v3/orders/${data.id}`, {
           method: 'PUT',
@@ -213,11 +245,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
             'Content-Type': 'application/json',
             Authorization: `Basic ${auth}`,
           },
-          body: JSON.stringify({ status: 'on-hold' }),
+          body: JSON.stringify({ status: targetStatus }),
         });
-        if (updateResp.ok) finalStatus = 'on-hold';
+        if (updateResp.ok) finalStatus = targetStatus;
       } catch {
         // Non-critical — order was created, status update failed
+      }
+    }
+
+    // Add order note for partial payment
+    if (partial_payment_percent != null && partial_payment_percent >= 0 && partial_payment_percent < 100 && data.id) {
+      const total = parseFloat(data.total);
+      const partialAmount = (total * partial_payment_percent / 100).toFixed(2);
+      const remaining = (total - parseFloat(partialAmount)).toFixed(2);
+      try {
+        await fetch(`${store.url}/wp-json/wc/v3/orders/${data.id}/notes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${auth}`,
+          },
+          body: JSON.stringify({
+            note: `Anzahlung: ${partial_payment_percent}% — Fälliger Betrag: €${partialAmount} / Gesamt: €${total.toFixed(2)} / Verbleibend: €${remaining}`,
+            customer_note: false,
+          }),
+        });
+      } catch {
+        // Non-critical
       }
     }
 

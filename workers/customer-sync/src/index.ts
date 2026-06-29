@@ -61,6 +61,15 @@ async function verifyWebhookSignature(body: string, signature: string, secret: s
 
 /** Extract customer fields from WooCommerce customer payload */
 function extractCustomer(data: any) {
+  // customer_type comes as a top-level REST field (registered by hercules-customer-type-meta.php)
+  // or from meta_data array in the webhook payload
+  let customer_type = data.customer_type || '';
+  if (!customer_type && Array.isArray(data.meta_data)) {
+    const meta = data.meta_data.find((m: any) => m.key === 'customer_type');
+    if (meta) customer_type = meta.value;
+  }
+  if (!customer_type) customer_type = 'individual';
+
   return {
     wc_customer_id: data.id,
     email: (data.email || '').toLowerCase().trim(),
@@ -68,6 +77,7 @@ function extractCustomer(data: any) {
     last_name: data.last_name || data.billing?.last_name || '',
     company: data.billing?.company || '',
     phone: data.billing?.phone || '',
+    customer_type,
   };
 }
 
@@ -77,14 +87,15 @@ async function upsertCustomer(db: D1Database, region: string, customer: ReturnTy
 
   await db
     .prepare(
-      `INSERT INTO customers (region, wc_customer_id, email, first_name, last_name, company, phone, synced_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO customers (region, wc_customer_id, email, first_name, last_name, company, phone, customer_type, synced_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (region, wc_customer_id)
        DO UPDATE SET email = excluded.email,
                      first_name = excluded.first_name,
                      last_name = excluded.last_name,
                      company = excluded.company,
                      phone = excluded.phone,
+                     customer_type = excluded.customer_type,
                      synced_at = excluded.synced_at`
     )
     .bind(
@@ -95,6 +106,7 @@ async function upsertCustomer(db: D1Database, region: string, customer: ReturnTy
       customer.last_name,
       customer.company,
       customer.phone,
+      customer.customer_type,
       new Date().toISOString()
     )
     .run();

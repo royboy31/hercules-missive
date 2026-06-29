@@ -33,6 +33,10 @@ async function createQuoteRequest(
   vatNumber?: string,
   designFiles?: { name: string; url: string }[],
   country?: string,
+  address1?: string,
+  address2?: string,
+  city?: string,
+  postcode?: string,
   WC_STORES?: Record<string, { url: string; ck: string; cs: string }>,
   CRM_QUOTE_SECRET?: string,
 ): Promise<{ success: boolean; quote_id?: number; quote_url?: string; pdf_url?: string; email_sent?: boolean; error?: string }> {
@@ -67,6 +71,10 @@ async function createQuoteRequest(
     phone: phone || '',
     vat_number: vatNumber || '',
     country: country || region,
+    address_1: address1 || '',
+    address_2: address2 || '',
+    city: city || '',
+    postcode: postcode || '',
     products,
     subtotal: totalNet || 0,
     tax_percent: taxPercent || FALLBACK_TAX[region] || 20,
@@ -123,7 +131,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, customer_type, line_items, total, currency, notes, created_by, quote_name, design_requested, design_message, design_files, delivery_estimate, phone, vat_number, country, tax_percent } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, total, currency, notes, created_by, quote_name, design_requested, design_message, design_files, delivery_estimate, phone, vat_number, country, address1, address2, city, postcode, tax_percent } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -154,6 +162,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     vat_number,
     design_files,
     country,
+    address1,
+    address2,
+    city,
+    postcode,
     WC_STORES,
     CRM_QUOTE_SECRET,
   );

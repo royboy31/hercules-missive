@@ -66,6 +66,7 @@ interface CustomerSearchResult {
 
 const REGION_ORDER = ['DE', 'UK', 'FR'];
 const REGION_NAMES: Record<string, string> = { DE: 'Germany', UK: 'United Kingdom', FR: 'France' };
+const REGION_DEFAULT_COUNTRY: Record<string, string> = { DE: 'DE', UK: 'GB', FR: 'FR' };
 // Fallback tax rates — only used when WC tax-rate API is unavailable
 const FALLBACK_VAT: Record<string, number> = { DE: 19, UK: 20, FR: 20 };
 
@@ -78,6 +79,15 @@ const COUNTRY_NAMES: Record<string, string> = {
   RO: 'Romania', BG: 'Bulgaria', HR: 'Croatia', SK: 'Slovakia', SI: 'Slovenia',
   EE: 'Estonia', LV: 'Latvia', LT: 'Lithuania', GR: 'Greece', CY: 'Cyprus', MT: 'Malta',
 };
+/** Reverse lookup: full country name → ISO code (e.g. "France" → "FR") */
+const COUNTRY_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(COUNTRY_NAMES).map(([code, name]) => [name, code])
+);
+/** Normalize a country value — if it's a full name like "France", convert to "FR" */
+function normalizeCountryCode(value: string): string {
+  if (!value) return value;
+  return COUNTRY_NAME_TO_CODE[value] || value;
+}
 const INTERNAL_DOMAINS = [
   '@hercules-merchandise.com',
   '@hercules-merchandise.de',
@@ -227,6 +237,7 @@ export default function SidebarAppV3() {
   const [designFiles, setDesignFiles] = useState<File[]>([]);
   const designFileInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<'bacs' | 'payment_link'>('bacs');
+  const [partialPaymentPercent, setPartialPaymentPercent] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
 
@@ -274,7 +285,7 @@ export default function SidebarAppV3() {
       return;
     }
     setVatRateLoading(true);
-    fetch(`/api/wc/tax-rates?region=${selectedRegion}&country=${encodeURIComponent(customer.country)}`)
+    fetch(`/api/wc/tax-rates?region=${selectedRegion}&country=${encodeURIComponent(normalizeCountryCode(customer.country))}`)
       .then((r) => r.json())
       .then((data) => {
         if (typeof data.rate === 'number') {
@@ -421,8 +432,11 @@ export default function SidebarAppV3() {
             if (!bestCompany && match.company) bestCompany = match.company;
             if (!bestPhone && match.phone) bestPhone = match.phone;
             if (!bestVat && match.vat_number) bestVat = match.vat_number;
-            if (match.customer_type === 'organization') bestType = 'organization';
-            if (!bestCountry && match.country) bestCountry = match.country;
+            // Use first non-individual customer_type found across regions
+            if (match.customer_type && match.customer_type !== 'individual' && bestType === 'individual') {
+              bestType = match.customer_type;
+            }
+            if (!bestCountry && match.country) bestCountry = normalizeCountryCode(match.country);
             if (!bestAddress1 && match.address_1) bestAddress1 = match.address_1;
             if (!bestAddress2 && match.address_2) bestAddress2 = match.address_2;
             if (!bestCity && match.city) bestCity = match.city;
@@ -454,9 +468,45 @@ export default function SidebarAppV3() {
             : prev
         );
         // Auto-set customer type and org name from WC data
-        if (bestType === 'organization' || bestCompany) {
-          setCustomerType('company');
+        if (bestType === 'company' || bestType === 'association') {
+          setCustomerType(bestType as 'company' | 'association');
           if (bestCompany) setOrgName(bestCompany);
+        } else if (bestType === 'organization' && bestCompany) {
+          // Legacy fallback: old D1 records used 'organization'
+          setCustomerType('company');
+          setOrgName(bestCompany);
+        } else if (bestCompany) {
+          // Pre-fill company name even for individuals, ready if user switches type
+          setOrgName(bestCompany);
+        }
+
+        // Auto-select region + proceed to products if customer exists in exactly one region
+        const foundRegions = REGION_ORDER.filter((c) => regs[c]?.found && regs[c]?.wc_customer_id);
+        if (foundRegions.length === 1) {
+          const code = foundRegions[0];
+          const match = regs[code];
+          const regionCountry = normalizeCountryCode(match?.country || '') || REGION_DEFAULT_COUNTRY[code] || '';
+          setSelectedRegion(code);
+          setCustomer((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  country: regionCountry || prev.country,
+                  ordersCount: match.orders_count || prev.ordersCount,
+                  totalSpent: match.total_spent || prev.totalSpent,
+                  company: match.company || prev.company,
+                  phone: match.phone || prev.phone,
+                  vatNumber: match.vat_number || prev.vatNumber,
+                  customerType: match.customer_type || prev.customerType,
+                  address1: match.address_1 || prev.address1,
+                  address2: match.address_2 || prev.address2,
+                  city: match.city || prev.city,
+                  postcode: match.postcode || prev.postcode,
+                  notes: match.notes || prev.notes,
+                }
+              : prev
+          );
+          setScreen({ type: 'products' });
         }
       })
       .catch(() => setRegions({}))
@@ -557,6 +607,44 @@ export default function SidebarAppV3() {
     }
     setSelectedRegion(code);
     setCreateRegionError(null);
+
+    // Sync all customer fields from the selected region's WC data
+    const match = regions[code];
+    const regionCountry = normalizeCountryCode(match?.country || '') || REGION_DEFAULT_COUNTRY[code] || '';
+    setCustomer((prev) => prev ? {
+      ...prev,
+      country: regionCountry || prev.country,
+      phone: match?.phone || prev.phone,
+      company: match?.company || prev.company,
+      vatNumber: match?.vat_number || prev.vatNumber,
+      address1: match?.address_1 || prev.address1,
+      address2: match?.address_2 || prev.address2,
+      city: match?.city || prev.city,
+      postcode: match?.postcode || prev.postcode,
+      notes: match?.notes || prev.notes,
+      ordersCount: match?.orders_count || prev.ordersCount,
+      totalSpent: match?.total_spent || prev.totalSpent,
+    } : prev);
+
+    // Update customer type from selected region
+    if (match?.found && match.customer_type) {
+      const ct = match.customer_type;
+      if (ct === 'company' || ct === 'association') {
+        setCustomerType(ct as 'company' | 'association');
+        if (match.company) setOrgName(match.company);
+      } else if (ct === 'organization' && match.company) {
+        setCustomerType('company');
+        setOrgName(match.company);
+      } else {
+        setCustomerType('individual');
+        // Pre-fill company name even for individuals, ready if user switches type
+        if (match.company) {
+          setOrgName(match.company);
+        } else {
+          setOrgName('');
+        }
+      }
+    }
 
     // Load persisted cart for this customer+region
     if (customer?.email) {
@@ -665,6 +753,7 @@ export default function SidebarAppV3() {
         shipping: item.shipping,
         lead_time: item.leadTime,
         selections: item.selections,
+        variation_attributes: item.variationAttributes || {},
         image_url: item.imageUrl || '',
         // Clear conditional_prices if totals overridden, quantity outside min/max range, or price manually changed
         conditional_prices: hideComparison ? [] : (item.conditionalPrices || []),
@@ -765,8 +854,13 @@ export default function SidebarAppV3() {
             notes: internalNote || '',
             phone: customer.phone || '',
             vat_number: customer.vatNumber || '',
-            country: customer.country || '',
+            country: normalizeCountryCode(customer.country) || '',
+            address1: customer.address1 || '',
+            address2: customer.address2 || '',
+            city: customer.city || '',
+            postcode: customer.postcode || '',
             payment_method: paymentMethod,
+            partial_payment_percent: partialPaymentPercent !== '' ? Number(partialPaymentPercent) : null,
             design_requested: designRequested,
             design_message: designRequested ? designMessage : '',
             design_files: designFileUrls,
@@ -794,7 +888,7 @@ export default function SidebarAppV3() {
           setCustomDelivery('');
           setEditingDelivery(false);
           setSubtotalOverride(null);
-
+          setPartialPaymentPercent('');
           setTotalOverride(null);
         } else {
           setSubmitResult({ success: false, error: data.error || 'Failed to create order' });
@@ -821,7 +915,11 @@ export default function SidebarAppV3() {
             design_files: designFileUrls,
             phone: customer.phone || '',
             vat_number: customer.vatNumber || '',
-            country: customer.country || '',
+            country: normalizeCountryCode(customer.country) || '',
+            address1: customer.address1 || '',
+            address2: customer.address2 || '',
+            city: customer.city || '',
+            postcode: customer.postcode || '',
             tax_percent: vatPct,
           }),
         });
@@ -968,6 +1066,7 @@ export default function SidebarAppV3() {
               company: editCompany.trim(),
               phone: editPhone.trim(),
               vat_number: editVatNumber.trim(),
+              customer_type: customerType,
               country: editCountry.trim(),
               address_1: editAddress1.trim(),
               address_2: editAddress2.trim(),
@@ -1046,7 +1145,7 @@ export default function SidebarAppV3() {
   // VAT exemption rules per region (matching each site's checkout logic):
   // No region / UK: NEVER exempt — always charge VAT regardless of VAT number
   // DE: any VAT number → exempt
-  // FR: VAT exempt only if VAT number matches FR format (FR + 2 chars + 9 digits)
+  // FR: VAT exempt if VAT number matches FR or LU format
   const isVatExempt = (() => {
     if (!selectedRegion) return false; // No region: never exempt
     if (selectedRegion === 'UK') return false; // UK: NEVER exempt, always charge VAT
@@ -1109,12 +1208,17 @@ export default function SidebarAppV3() {
   };
 
   const saveInlineNameEdit = async () => {
-    if (!customer || !selectedRegion) return;
+    if (!customer) return;
+
+    // Use selectedRegion, or fall back to first region with a WC customer
+    const effectiveRegion = selectedRegion
+      || REGION_ORDER.find((c) => regions[c]?.found && regions[c]?.wc_customer_id)
+      || null;
+
     setSavingNameInline(true);
     const newName = `${inlineFirstName.trim()} ${inlineLastName.trim()}`.trim();
 
-    // Check if this is a new customer (not yet in WooCommerce)
-    const regionMatch = regions[selectedRegion];
+    const regionMatch = effectiveRegion ? regions[effectiveRegion] : null;
     const isNewCustomer = !regionMatch?.found || !regionMatch?.wc_customer_id;
 
     if (isNewCustomer) {
@@ -1125,23 +1229,35 @@ export default function SidebarAppV3() {
       return;
     }
 
+    // Update all regions where customer exists
+    const regionsToUpdate = REGION_ORDER.filter(
+      (c) => regions[c]?.found && regions[c]?.wc_customer_id
+    );
+
     try {
-      const res = await fetch(`/api/wc/customers?region=${selectedRegion}&email=${encodeURIComponent(customer.email)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          first_name: inlineFirstName.trim(),
-          last_name: inlineLastName.trim(),
-        }),
+      await Promise.all(regionsToUpdate.map((code) =>
+        fetch(`/api/wc/customers`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            region: code,
+            wc_customer_id: regions[code].wc_customer_id,
+            first_name: inlineFirstName.trim(),
+            last_name: inlineLastName.trim(),
+          }),
+        })
+      ));
+      setCustomer((prev) => prev ? { ...prev, name: newName } : prev);
+      // Update regions cache
+      setRegions((prev) => {
+        const updated = { ...prev };
+        for (const code of regionsToUpdate) {
+          if (updated[code]) {
+            updated[code] = { ...updated[code], first_name: inlineFirstName.trim(), last_name: inlineLastName.trim() };
+          }
+        }
+        return updated;
       });
-      if (res.ok) {
-        setCustomer((prev) => prev ? { ...prev, name: newName } : prev);
-        // Update regions cache
-        setRegions((prev) => ({
-          ...prev,
-          [selectedRegion]: prev[selectedRegion] ? { ...prev[selectedRegion], first_name: inlineFirstName.trim(), last_name: inlineLastName.trim() } : prev[selectedRegion],
-        }));
-      }
     } catch (err) {
       console.error('Failed to save name:', err);
     }
@@ -1851,7 +1967,22 @@ export default function SidebarAppV3() {
               {(['individual', 'company', 'association'] as const).map((type) => (
                 <button
                   key={type}
-                  onClick={() => setCustomerType(type)}
+                  onClick={() => {
+                    setCustomerType(type);
+                    // Sync customer_type to WC for all regions where customer exists
+                    const regionsToSync = REGION_ORDER.filter((c) => regions[c]?.found && regions[c]?.wc_customer_id);
+                    for (const code of regionsToSync) {
+                      fetch('/api/wc/customers', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          region: code,
+                          wc_customer_id: regions[code].wc_customer_id,
+                          customer_type: type,
+                        }),
+                      }).catch(() => {});
+                    }
+                  }}
                   className={`flex-1 py-1.5 text-[11px] font-[Jost,sans-serif] font-semibold rounded-lg border transition-colors ${
                     customerType === type
                       ? 'bg-[#10c99e] text-white border-[#10c99e]'
@@ -1877,7 +2008,7 @@ export default function SidebarAppV3() {
 
           {/* Country */}
           <select
-            value={customer?.country || ''}
+            value={normalizeCountryCode(customer?.country || '')}
             onChange={(e) => setCustomer((prev) => prev ? { ...prev, country: e.target.value } : prev)}
             className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
           >
@@ -1970,16 +2101,16 @@ export default function SidebarAppV3() {
           />
           <input
             type="text"
-            value={customer?.city || ''}
-            onChange={(e) => setCustomer((prev) => prev ? { ...prev, city: e.target.value } : prev)}
-            placeholder="City"
+            value={customer?.postcode || ''}
+            onChange={(e) => setCustomer((prev) => prev ? { ...prev, postcode: e.target.value } : prev)}
+            placeholder="Postcode"
             className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
           />
           <input
             type="text"
-            value={customer?.postcode || ''}
-            onChange={(e) => setCustomer((prev) => prev ? { ...prev, postcode: e.target.value } : prev)}
-            placeholder="Postcode"
+            value={customer?.city || ''}
+            onChange={(e) => setCustomer((prev) => prev ? { ...prev, city: e.target.value } : prev)}
+            placeholder="City"
             className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
           />
 
@@ -2010,6 +2141,25 @@ export default function SidebarAppV3() {
                 >
                   Payment Link
                 </button>
+              </div>
+
+              {/* Partial payment percentage */}
+              <div className="mt-2">
+                <label className="text-[11px] font-[Jost,sans-serif] font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
+                  Partial Payment %
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={partialPaymentPercent}
+                    onChange={(e) => setPartialPaymentPercent(e.target.value)}
+                    placeholder="100"
+                    className="w-20 px-3 py-1.5 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
+                  />
+                  <span className="text-[11px] text-gray-400">% of total (leave empty for full payment)</span>
+                </div>
               </div>
             </div>
           )}
@@ -2496,7 +2646,7 @@ function CustomerDetails({
     : REGION_ORDER.find((c) => regions[c]?.found && regions[c]?.wc_customer_id) || null;
 
   const hasAnyRegion = REGION_ORDER.some((c) => regions[c]?.found && regions[c]?.wc_customer_id);
-  const isOrg = customer.customerType === 'organization';
+  const isOrg = customer.customerType === 'organization' || customer.customerType === 'company' || customer.customerType === 'association';
 
   return (
     <>
@@ -2514,7 +2664,7 @@ function CustomerDetails({
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           )}
-          {isOrg ? 'Organization' : 'Individual'}
+          {customer.customerType === 'association' ? 'Association' : isOrg ? 'Company' : 'Individual'}
         </span>
       </div>
 
@@ -2545,7 +2695,7 @@ function CustomerDetails({
         {/* Country */}
         <DetailRow
           icon={<path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
-          value={customer.country ? (COUNTRY_NAMES[customer.country] || customer.country) : ''}
+          value={customer.country ? (COUNTRY_NAMES[normalizeCountryCode(customer.country)] || customer.country) : ''}
           placeholder="No country"
         />
         {/* Orders */}
@@ -2728,21 +2878,21 @@ function CustomerEditForm({
               className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
             />
           )}
-          {onCityChange && (
-            <input
-              type="text"
-              value={editCity || ''}
-              onChange={(e) => onCityChange(e.target.value)}
-              placeholder="City"
-              className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e] mb-2"
-            />
-          )}
           {onPostcodeChange && (
             <input
               type="text"
               value={editPostcode || ''}
               onChange={(e) => onPostcodeChange(e.target.value)}
               placeholder="Postcode"
+              className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e] mb-2"
+            />
+          )}
+          {onCityChange && (
+            <input
+              type="text"
+              value={editCity || ''}
+              onChange={(e) => onCityChange(e.target.value)}
+              placeholder="City"
               className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:border-[#10c99e]"
             />
           )}
