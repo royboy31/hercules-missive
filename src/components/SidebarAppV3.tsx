@@ -22,6 +22,8 @@ interface RegionMatch {
   customer_type?: string;
   country?: string;
   notes?: string;
+  /** Distributor discount % (0 when the customer is not a distributor on this region) */
+  distributor_discount?: number;
   orders_count?: number;
   total_spent?: string;
 }
@@ -717,9 +719,17 @@ export default function SidebarAppV3() {
       : subtotalOverride !== null
         ? parseFloat(subtotalOverride) || 0
         : cartSub;
-    const totalGross = totalOverride !== null
-      ? parseFloat(totalOverride || '0')
-      : Math.round(sub * (1 + vatPct / 100) * 100) / 100;
+    // Distributor discount (region-specific, 0 when not a distributor).
+    // `sub` stays the PRE-discount net: the WP quote templates and the WC order fee
+    // both apply the discount themselves from that base — pre-discounting here would double it.
+    const distPct = (regions[selectedRegion]?.distributor_discount) || 0;
+    const distAmount = distPct > 0 ? Math.round(sub * (distPct / 100) * 100) / 100 : 0;
+    const netAfterDist = Math.round((sub - distAmount) * 100) / 100;
+    const totalGross = distPct > 0
+      ? Math.round(netAfterDist * (1 + vatPct / 100) * 100) / 100
+      : totalOverride !== null
+        ? parseFloat(totalOverride || '0')
+        : Math.round(sub * (1 + vatPct / 100) * 100) / 100;
 
     // Only hide the comparison table if totals were actually changed to different values
     // (not just because user clicked on the editable field)
@@ -860,6 +870,7 @@ export default function SidebarAppV3() {
             city: customer.city || '',
             postcode: customer.postcode || '',
             payment_method: paymentMethod,
+            distributor_discount_percent: distPct || null,
             partial_payment_percent: partialPaymentPercent !== '' ? Number(partialPaymentPercent) : null,
             design_requested: designRequested,
             design_message: designRequested ? designMessage : '',
@@ -921,6 +932,7 @@ export default function SidebarAppV3() {
             city: customer.city || '',
             postcode: customer.postcode || '',
             tax_percent: vatPct,
+            distributor_discount_percent: distPct || null,
           }),
         });
         const data = await resp.json();
@@ -1164,10 +1176,17 @@ export default function SidebarAppV3() {
     : subtotalOverride !== null
       ? parseFloat(subtotalOverride || '0')
       : cartSubtotal;
-  const vat = Math.round(subtotal * (vatPercent / 100) * 100) / 100;
-  const total = totalOverride !== null
-    ? parseFloat(totalOverride || '0')
-    : Math.round((subtotal + vat) * 100) / 100;
+  // Distributor discount for the selected region — same rule the stores use:
+  // it is applied to the (pre-discount) net subtotal, VAT is charged on the discounted net.
+  const distDiscount = (selectedRegion && regions[selectedRegion]?.distributor_discount) || 0;
+  const distDiscountAmount = distDiscount > 0 ? Math.round(subtotal * (distDiscount / 100) * 100) / 100 : 0;
+  const netAfterDiscount = Math.round((subtotal - distDiscountAmount) * 100) / 100;
+  const vat = Math.round(netAfterDiscount * (vatPercent / 100) * 100) / 100;
+  const total = distDiscount > 0
+    ? Math.round((netAfterDiscount + vat) * 100) / 100
+    : totalOverride !== null
+      ? parseFloat(totalOverride || '0')
+      : Math.round((subtotal + vat) * 100) / 100;
 
   // Delivery estimate: longest lead time (use custom override if set)
   const autoDeliveryEstimate = cart.length > 0
@@ -1812,6 +1831,9 @@ export default function SidebarAppV3() {
                     ) : (
                       <span className="text-[9px] text-gray-400">new</span>
                     )}
+                    {found && (match.distributor_discount || 0) > 0 && (
+                      <span className="text-[9px] font-semibold text-[#10c99e]">-{match.distributor_discount}% dist.</span>
+                    )}
                   </button>
                 );
               })}
@@ -1916,9 +1938,22 @@ export default function SidebarAppV3() {
             <SummaryRow label="Products" value={`${cart.length} item${cart.length !== 1 ? 's' : ''}`} />
             <Divider />
             <EditableSummaryRow label="Subtotal" value={subtotalOverride !== null && totalOverride === null ? subtotalOverride : subtotal.toFixed(2)} currencySymbol={currencySymbol} onChange={(v) => { setSubtotalOverride(v); setTotalOverride(null); }} />
+            {distDiscount > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-medium text-[#10c99e]">Distributor discount ({distDiscount}%)</span>
+                  <span className="text-[12px] font-semibold text-[#10c99e]">-{currencySymbol}{distDiscountAmount.toFixed(2)}</span>
+                </div>
+                <SummaryRow label="Net after discount" value={`${currencySymbol}${netAfterDiscount.toFixed(2)}`} />
+              </>
+            )}
             <SummaryRow label={isVatExempt ? 'VAT (Reverse Charge)' : `VAT (${vatPercent}%)`} value={`${currencySymbol}${vat.toFixed(2)}`} muted />
             <Divider />
-            <EditableSummaryRow label="Total" value={totalOverride !== null ? totalOverride : total.toFixed(2)} currencySymbol={currencySymbol} onChange={(v) => { setTotalOverride(v); setSubtotalOverride(null); }} bold />
+            {distDiscount > 0 ? (
+              <SummaryRow label="Total" value={`${currencySymbol}${total.toFixed(2)}`} bold />
+            ) : (
+              <EditableSummaryRow label="Total" value={totalOverride !== null ? totalOverride : total.toFixed(2)} currencySymbol={currencySymbol} onChange={(v) => { setTotalOverride(v); setSubtotalOverride(null); }} bold />
+            )}
           </div>
 
           {/* Delivery estimate — hidden for manual quotes (meeting 2026-03-24) */}

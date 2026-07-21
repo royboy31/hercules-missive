@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, address1, address2, city, postcode, payment_method, partial_payment_percent, design_requested, design_message, design_files } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, address1, address2, city, postcode, payment_method, partial_payment_percent, distributor_discount_percent, design_requested, design_message, design_files } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -145,6 +145,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
     set_paid: false,
     meta_data: [] as Array<{ key: string; value: string }>,
   };
+
+  // Distributor discount — the storefront applies it as a taxable negative cart fee
+  // (hercules-distributor-role.php, woocommerce_cart_calculate_fees). That hook never runs
+  // on the REST path (no logged-in customer), so the CRM must add the same fee itself.
+  // The label must keep the region's wording — order emails and the order-pay page match on it.
+  const DISTRIBUTOR_FEE_LABEL: Record<string, string> = {
+    DE: 'Händlerrabatt',
+    UK: 'Distributor discount',
+    FR: 'Remise revendeur',
+  };
+  const distPct = parseFloat(distributor_discount_percent) || 0;
+  if (distPct > 0) {
+    const netSubtotal = wcLineItems.reduce(
+      (sum: number, li: any) => sum + (parseFloat(li.total) || 0),
+      0
+    );
+    const discountAmount = Math.round(netSubtotal * (distPct / 100) * 100) / 100;
+    if (discountAmount > 0) {
+      orderPayload.fee_lines = [
+        {
+          name: `${DISTRIBUTOR_FEE_LABEL[region] ?? DISTRIBUTOR_FEE_LABEL.UK} (${distPct}%)`,
+          total: String(-discountAmount),
+          tax_status: 'taxable',
+          tax_class: '',
+        },
+      ];
+    }
+    // Storefront stamps this via woocommerce_checkout_update_order_meta, which the REST path skips
+    orderPayload.meta_data.push({ key: '_distributor_discount_percent', value: String(distPct) });
+  }
 
   // Flag CRM payment-link orders so the mu-plugin can inject bank details into the email
   if (isPaymentLink) {
