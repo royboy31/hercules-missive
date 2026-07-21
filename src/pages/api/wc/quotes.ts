@@ -37,6 +37,7 @@ async function createQuoteRequest(
   address2?: string,
   city?: string,
   postcode?: string,
+  distributorDiscountPercent?: number,
   WC_STORES?: Record<string, { url: string; ck: string; cs: string }>,
   CRM_QUOTE_SECRET?: string,
 ): Promise<{ success: boolean; quote_id?: number; quote_url?: string; pdf_url?: string; email_sent?: boolean; error?: string }> {
@@ -85,6 +86,10 @@ async function createQuoteRequest(
     design_requested: designRequested || false,
     design_message: designMessage || '',
     design_files: designFiles || [],
+    // Recorded for audit only. `subtotal` above is deliberately PRE-discount: the quote
+    // email/PDF/quote-page templates apply the distributor discount themselves from the
+    // stored subtotal + the customer's WP role, so discounting here would double it.
+    distributor_discount_percent: distributorDiscountPercent || 0,
     created_by: 'CRM',
   };
 
@@ -131,7 +136,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, customer_type, line_items, total, currency, notes, created_by, quote_name, design_requested, design_message, design_files, delivery_estimate, phone, vat_number, country, address1, address2, city, postcode, tax_percent } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, total, currency, notes, created_by, quote_name, design_requested, design_message, design_files, delivery_estimate, phone, vat_number, country, address1, address2, city, postcode, tax_percent, distributor_discount_percent } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -166,6 +171,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     address2,
     city,
     postcode,
+    parseFloat(distributor_discount_percent) || 0,
     WC_STORES,
     CRM_QUOTE_SECRET,
   );
@@ -185,6 +191,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     pdf_url: siteResult.pdf_url || null,
     email_sent: siteResult.email_sent || false,
     error: siteResult.error || null,
+    distributor_discount_percent: parseFloat(distributor_discount_percent) || 0,
   };
 
   const result = await db
