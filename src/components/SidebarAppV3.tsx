@@ -2682,6 +2682,8 @@ function CustomerDetails({
 
   const hasAnyRegion = REGION_ORDER.some((c) => regions[c]?.found && regions[c]?.wc_customer_id);
   const isOrg = customer.customerType === 'organization' || customer.customerType === 'company' || customer.customerType === 'association';
+  // Distributor discount is per region — show the one for the region this card is describing
+  const cardDiscount = (viewRegion && regions[viewRegion]?.distributor_discount) || 0;
 
   return (
     <>
@@ -2701,6 +2703,14 @@ function CustomerDetails({
           )}
           {customer.customerType === 'association' ? 'Association' : isOrg ? 'Company' : 'Individual'}
         </span>
+        {cardDiscount > 0 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-[Jost,sans-serif] font-semibold bg-[#e6faf3] text-[#10c99e]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Distributor −{cardDiscount}%
+          </span>
+        )}
       </div>
 
       <div className="space-y-1.5 mb-2.5">
