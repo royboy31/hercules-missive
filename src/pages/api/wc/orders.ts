@@ -55,6 +55,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
+  // VAT exemption — mirror the sidebar's rule (SidebarAppV3 `submitVatExempt`).
+  // The frontend already decides exemption but only bakes it into the (ignored)
+  // `total` field, so orders reached WC with no tax hint and WC auto-charged
+  // destination VAT from the billing country. Recompute it here from data we
+  // already receive, then force 0% by putting the line items + distributor fee
+  // into the store's empty "Zero rate" tax class (no rate rows → 0% on DE/FR).
+  //   UK: never exempt. DE: any VAT number. FR: valid FR/LU VAT number.
+  const vatNorm = (vat_number || '').replace(/\s+/g, '').toUpperCase();
+  const vatExempt = (() => {
+    if (region === 'UK') return false;
+    if (!vatNorm) return false;
+    if (region === 'DE') return true;
+    if (region === 'FR') return /^(FR[0-9A-Z]{2}\d{9}|LU\d{8})$/.test(vatNorm);
+    return false;
+  })();
+
   // Build WC order line items
   const wcLineItems = items.map((item: any) => {
     const lineItem: any = {
@@ -102,6 +118,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     if (metaData.length > 0) {
       lineItem.meta_data = metaData;
+    }
+
+    // VAT-exempt (valid intra-EU / reverse-charge VAT number): zero-rate class → 0% tax
+    if (vatExempt) {
+      lineItem.tax_class = 'zero-rate';
     }
 
     return lineItem;
@@ -168,7 +189,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           name: `${DISTRIBUTOR_FEE_LABEL[region] ?? DISTRIBUTOR_FEE_LABEL.UK} (${distPct}%)`,
           total: String(-discountAmount),
           tax_status: 'taxable',
-          tax_class: '',
+          // Match the line items: zero-rate when VAT-exempt, otherwise standard.
+          tax_class: vatExempt ? 'zero-rate' : '',
         },
       ];
     }
@@ -185,6 +207,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (vat_number) {
     orderPayload.meta_data.push({ key: '_billing_vat_number', value: vat_number });
     orderPayload.meta_data.push({ key: '_vat_number', value: vat_number });
+  }
+
+  // Record the VAT-exemption decision for auditability
+  if (vatExempt) {
+    orderPayload.meta_data.push({ key: '_vat_exempt', value: 'yes' });
   }
 
   // Add customer type as order meta
