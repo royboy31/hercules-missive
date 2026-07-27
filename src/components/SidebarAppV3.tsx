@@ -1528,6 +1528,7 @@ export default function SidebarAppV3() {
           region={selectedRegion!}
           customerEmail={customer?.email}
           mode={mode}
+          distributorDiscount={(regions[selectedRegion!]?.distributor_discount) || 0}
           onAddToCart={handleAddToCart}
         />
       </div>
