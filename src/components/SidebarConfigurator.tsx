@@ -145,10 +145,12 @@ interface Props {
   region: string;
   customerEmail?: string;
   mode?: 'quote' | 'order';
+  /** Distributor discount % for this region's customer (0 when not a distributor). */
+  distributorDiscount?: number;
   onAddToCart?: (item: CartItemData) => void;
 }
 
-export default function SidebarConfigurator({ productId, productName, region, customerEmail, mode = 'quote', onAddToCart }: Props) {
+export default function SidebarConfigurator({ productId, productName, region, customerEmail, mode = 'quote', distributorDiscount = 0, onAddToCart }: Props) {
   const [config, setConfig] = useState<ProductConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -887,6 +889,10 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                   const firstTierQty = parseFloatSafe(firstTier.qty);
                   const firstPrice = parseFloatSafe(firstTier.price) + getAddonExtra(firstTierQty);
                   const savings = firstPrice > 0 ? Math.round((1 - totalPrice / firstPrice) * 100) : 0;
+                  // Distributor discount: strike the original tier price, show the discounted one.
+                  const discountedPrice = distributorDiscount > 0
+                    ? Math.round(totalPrice * (1 - distributorDiscount / 100) * 100) / 100
+                    : totalPrice;
 
                   return (
                     <label key={idx} className="kd-radio-option">
@@ -905,7 +911,14 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                       </div>
                       <div className="kd-radio-meta">
                         {savings > 0 && <span className="save">Save {savings}%</span>}
-                        <span>{totalPrice.toFixed(2)} {currencySymbol}</span>
+                        {distributorDiscount > 0 ? (
+                          <span className="flex items-center gap-1">
+                            <span className="line-through text-gray-400">{totalPrice.toFixed(2)} {currencySymbol}</span>
+                            <span className="text-[#10c99e] font-semibold">{discountedPrice.toFixed(2)} {currencySymbol}</span>
+                          </span>
+                        ) : (
+                          <span>{totalPrice.toFixed(2)} {currencySymbol}</span>
+                        )}
                       </div>
                     </label>
                   );
