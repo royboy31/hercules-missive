@@ -269,6 +269,25 @@ input[type="range"]::-ms-thumb {
     width: 100px;
 }
 
+/* Distributor discount: grey strike-through original + green discounted price */
+.kd-radio-meta .kd-dist-price {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.kd-radio-meta .kd-dist-orig {
+    text-decoration: line-through;
+    color: rgb(120, 120, 120);
+    font-weight: 400;
+}
+
+.kd-radio-meta .kd-dist-new {
+    color: #10c99e;
+    font-weight: 600;
+}
+
 /* Contact option - align button to right, no border after */
 .kd-contact-option {
     justify-content: space-between;

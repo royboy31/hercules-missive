@@ -912,9 +912,9 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                       <div className="kd-radio-meta">
                         {savings > 0 && <span className="save">Save {savings}%</span>}
                         {distributorDiscount > 0 ? (
-                          <span className="flex items-center gap-1">
-                            <span className="line-through text-gray-400">{totalPrice.toFixed(2)} {currencySymbol}</span>
-                            <span className="text-[#10c99e] font-semibold">{discountedPrice.toFixed(2)} {currencySymbol}</span>
+                          <span className="kd-dist-price">
+                            <span className="kd-dist-orig">{totalPrice.toFixed(2)} {currencySymbol}</span>
+                            <span className="kd-dist-new">{discountedPrice.toFixed(2)} {currencySymbol}</span>
                           </span>
                         ) : (
                           <span>{totalPrice.toFixed(2)} {currencySymbol}</span>
