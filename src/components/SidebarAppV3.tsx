@@ -1917,6 +1917,7 @@ export default function SidebarAppV3() {
                   key={item.id}
                   item={item}
                   currency={currencySymbol}
+                  distributorDiscount={distDiscount}
                   onEdit={() => editItem(item)}
                   onUpdate={(updates) => updateItem(item.id, updates)}
                   onDuplicate={() => duplicateItem(item.id)}
@@ -2443,6 +2444,7 @@ function SectionHeader({
 function ProductCard({
   item,
   currency,
+  distributorDiscount = 0,
   onEdit,
   onUpdate,
   onDuplicate,
@@ -2450,6 +2452,8 @@ function ProductCard({
 }: {
   item: CartItem;
   currency: string;
+  /** Distributor discount % for the selected region — display only. */
+  distributorDiscount?: number;
   onEdit: () => void;
   onUpdate: (updates: { quantity: number; pricePerPiece: number }) => void;
   onDuplicate: () => void;
@@ -2460,6 +2464,15 @@ function ProductCard({
   const [editingPrice, setEditingPrice] = useState(false);
   const [tempQty, setTempQty] = useState(String(item.quantity));
   const [tempPrice, setTempPrice] = useState(item.pricePerPiece.toFixed(2));
+
+  // Distributor discount is DISPLAY ONLY here. `item.pricePerPiece` / `item.lineTotal`
+  // stay at list price because that is what gets submitted — WooCommerce applies the
+  // discount itself (see api/wc/quotes.ts and the fee line in api/wc/orders.ts), so
+  // discounting the stored value would double it.
+  const showDist = distributorDiscount > 0;
+  const distFactor = 1 - distributorDiscount / 100;
+  const discLineTotal = Math.round(item.lineTotal * distFactor * 100) / 100;
+  const discPricePerPiece = Math.round(item.pricePerPiece * distFactor * 100) / 100;
 
   const selectionsStr = Object.entries(item.selections)
     .map(([k, v]) => `${k}: ${v}`)
@@ -2501,7 +2514,14 @@ function ProductCard({
         </div>
         <div className="text-right flex-shrink-0">
           <div className="font-[Jost,sans-serif] text-[13px] font-bold">
-            {currency}{item.lineTotal.toFixed(2)}
+            {showDist ? (
+              <>
+                <span className="text-gray-400 font-normal line-through mr-1">{currency}{item.lineTotal.toFixed(2)}</span>
+                <span className="text-[#10c99e]">{currency}{discLineTotal.toFixed(2)}</span>
+              </>
+            ) : (
+              <>{currency}{item.lineTotal.toFixed(2)}</>
+            )}
           </div>
         </div>
         <ChevronDown open={expanded} />
@@ -2556,7 +2576,14 @@ function ProductCard({
                 className="text-gray-500 cursor-pointer hover:text-blue-600 group"
                 onClick={(e) => { e.stopPropagation(); setTempPrice(item.pricePerPiece.toFixed(2)); setEditingPrice(true); }}
               >
-                <span className="group-hover:underline">{currency}{item.pricePerPiece.toFixed(2)} / pc</span>
+                {showDist ? (
+                  <span className="group-hover:underline">
+                    <span className="text-gray-400 line-through">{currency}{item.pricePerPiece.toFixed(2)}</span>{' '}
+                    <span className="text-[#10c99e] font-semibold">{currency}{discPricePerPiece.toFixed(2)}</span> / pc
+                  </span>
+                ) : (
+                  <span className="group-hover:underline">{currency}{item.pricePerPiece.toFixed(2)} / pc</span>
+                )}
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-2.5 h-2.5 inline ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
