@@ -288,6 +288,28 @@ input[type="range"]::-ms-thumb {
     font-weight: 600;
 }
 
+/* Distributor discount: inline annotation next to the editable "Your offer" fields.
+   The input keeps the list price (that is what gets submitted); this shows the price
+   the distributor actually pays, so the lower block matches the qty-tier rows above. */
+.kd-dist-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.kd-dist-inline .kd-dist-arrow {
+    color: rgb(120, 120, 120);
+    font-weight: 400;
+}
+
+.kd-dist-inline .kd-dist-val {
+    color: #10c99e;
+    font-weight: 600;
+}
+
 /* Contact option - align button to right, no border after */
 .kd-contact-option {
     justify-content: space-between;

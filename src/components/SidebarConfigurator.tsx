@@ -334,6 +334,18 @@ export default function SidebarConfigurator({ productId, productName, region, cu
 
   const taxMultiplier = config ? 1 + config.tax_percent / 100 : 1.19;
 
+  // Distributor discount in the "Your offer" block is DISPLAY ONLY. The inputs keep the
+  // list price because that value is what gets submitted (`finalPricePerPiece` below) —
+  // WooCommerce applies the distributor discount itself from the customer's role, so
+  // sending an already-discounted price would double it. This just renders the figure
+  // the customer will actually see, next to the field.
+  const distDiscounted = (shown: string | number | null | undefined): string | null => {
+    if (!(distributorDiscount > 0)) return null;
+    const num = typeof shown === 'number' ? shown : parseFloat(String(shown ?? ''));
+    if (isNaN(num) || num <= 0) return null;
+    return (Math.round(num * (1 - distributorDiscount / 100) * 100) / 100).toFixed(2);
+  };
+
   const handlePricePerPieceChange = (val: string) => {
     setPricePerPieceOverride(val);
     const num = parseFloat(val);
@@ -1013,18 +1025,36 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                     placeholder={priceInfo.outOfScope ? 'Enter price' : ''}
                     style={priceInfo.outOfScope && (!pricePerPieceOverride || pricePerPieceOverride === '') ? { borderColor: '#f59e0b', background: '#fffbeb' } : {}}
                   /> {currencySymbol} (net)
+                  {(() => {
+                    const d = distDiscounted(pricePerPieceOverride ?? (priceInfo.outOfScope ? '' : priceInfo.pricePerPiece));
+                    return d ? (
+                      <span className="kd-dist-inline"><span className="kd-dist-arrow">−{distributorDiscount}%</span><span className="kd-dist-val">{d} {currencySymbol}</span></span>
+                    ) : null;
+                  })()}
                 </td>
               </tr>
               <tr>
                 <td>Total (net)</td>
                 <td className="kd-total-value">
                   <input type="text" className="kd-editable-field" value={totalNetOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalExclVat.toFixed(2))} onChange={e => handleTotalNetChange(e.target.value)} placeholder={priceInfo.outOfScope ? '—' : ''} /> {currencySymbol}
+                  {(() => {
+                    const d = distDiscounted(totalNetOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalExclVat));
+                    return d ? (
+                      <span className="kd-dist-inline"><span className="kd-dist-arrow">−{distributorDiscount}%</span><span className="kd-dist-val">{d} {currencySymbol}</span></span>
+                    ) : null;
+                  })()}
                 </td>
               </tr>
               <tr>
                 <td>Total (incl. {priceInfo.taxPercent}% VAT)</td>
                 <td>
                   <input type="text" className="kd-editable-field" value={totalGrossOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalInclVat.toFixed(2))} onChange={e => handleTotalGrossChange(e.target.value)} placeholder={priceInfo.outOfScope ? '—' : ''} /> {currencySymbol}
+                  {(() => {
+                    const d = distDiscounted(totalGrossOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalInclVat));
+                    return d ? (
+                      <span className="kd-dist-inline"><span className="kd-dist-arrow">−{distributorDiscount}%</span><span className="kd-dist-val">{d} {currencySymbol}</span></span>
+                    ) : null;
+                  })()}
                 </td>
               </tr>
               <tr>
