@@ -1028,7 +1028,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                   {(() => {
                     const d = distDiscounted(pricePerPieceOverride ?? (priceInfo.outOfScope ? '' : priceInfo.pricePerPiece));
                     return d ? (
-                      <span className="kd-dist-inline"><span className="kd-dist-arrow">−{distributorDiscount}%</span><span className="kd-dist-val">{d} {currencySymbol}</span></span>
+                      <span className="kd-dist-inline"><span className="kd-dist-num">{d}</span> {currencySymbol}</span>
                     ) : null;
                   })()}
                 </td>
@@ -1040,7 +1040,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                   {(() => {
                     const d = distDiscounted(totalNetOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalExclVat));
                     return d ? (
-                      <span className="kd-dist-inline"><span className="kd-dist-arrow">−{distributorDiscount}%</span><span className="kd-dist-val">{d} {currencySymbol}</span></span>
+                      <span className="kd-dist-inline"><span className="kd-dist-num">{d}</span> {currencySymbol}</span>
                     ) : null;
                   })()}
                 </td>
@@ -1052,7 +1052,7 @@ export default function SidebarConfigurator({ productId, productName, region, cu
                   {(() => {
                     const d = distDiscounted(totalGrossOverride ?? (priceInfo.outOfScope ? '' : priceInfo.totalInclVat));
                     return d ? (
-                      <span className="kd-dist-inline"><span className="kd-dist-arrow">−{distributorDiscount}%</span><span className="kd-dist-val">{d} {currencySymbol}</span></span>
+                      <span className="kd-dist-inline"><span className="kd-dist-num">{d}</span> {currencySymbol}</span>
                     ) : null;
                   })()}
                 </td>

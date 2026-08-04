@@ -288,26 +288,28 @@ input[type="range"]::-ms-thumb {
     font-weight: 600;
 }
 
-/* Distributor discount: inline annotation next to the editable "Your offer" fields.
-   The input keeps the list price (that is what gets submitted); this shows the price
-   the distributor actually pays, so the lower block matches the qty-tier rows above. */
+/* Distributor discount: the price the distributor actually pays, shown under the
+   editable "Your offer" fields. The input keeps the list price (that is what gets
+   submitted), so this is display only.
+   Its own line — the value column is 50% of a ~350px sidebar and cannot fit two
+   prices side by side. .kd-dist-num mirrors .kd-editable-field's width/padding so
+   the green figure right-aligns with the number in the box directly above it. */
 .kd-dist-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: 6px;
+    display: block;
+    margin-top: 2px;
     font-size: 12px;
+    line-height: 1.3;
     white-space: nowrap;
-}
-
-.kd-dist-inline .kd-dist-arrow {
-    color: rgb(120, 120, 120);
-    font-weight: 400;
-}
-
-.kd-dist-inline .kd-dist-val {
     color: #10c99e;
     font-weight: 600;
+}
+
+.kd-dist-inline .kd-dist-num {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 120px;        /* == .kd-editable-field max-width */
+    padding-right: 7px;  /* == .kd-editable-field padding-right + border */
+    text-align: right;
 }
 
 /* Contact option - align button to right, no border after */
