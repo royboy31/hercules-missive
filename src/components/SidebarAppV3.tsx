@@ -194,6 +194,12 @@ export default function SidebarAppV3() {
   const [editingCustomer, setEditingCustomer] = useState(false);
   const editingCustomerRef = useRef(false);
   const currentConversationIdsRef = useRef<string | null>(null);
+  // Request-sequencing guards: the customer lookup takes several seconds, so a
+  // conversation switch inside that window used to let the older response land
+  // last and overwrite the newer customer's data. Every async callback below
+  // checks its ticket against the ref and bails out if it is no longer current.
+  const conversationSeqRef = useRef(0);
+  const customerLookupSeqRef = useRef(0);
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editCompany, setEditCompany] = useState('');
@@ -284,20 +290,33 @@ export default function SidebarAppV3() {
   useEffect(() => {
     if (!selectedRegion || !customer?.country) {
       setDynamicVatRate(null);
+      setVatRateLoading(false);
       return;
     }
+    // Same sequencing problem as the customer lookup: a region/country change
+    // must not be overwritten by the previous country's rate landing late.
+    let cancelled = false;
     setVatRateLoading(true);
     fetch(`/api/wc/tax-rates?region=${selectedRegion}&country=${encodeURIComponent(normalizeCountryCode(customer.country))}`)
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         if (typeof data.rate === 'number') {
           setDynamicVatRate(data.rate);
         } else {
           setDynamicVatRate(null);
         }
       })
-      .catch(() => setDynamicVatRate(null))
+      .catch(() => {
+        if (cancelled) return;
+        setDynamicVatRate(null);
+      })
+      // Deliberately NOT guarded — vatRateLoading disables the Create button,
+      // so it must always be cleared, even for a superseded request.
       .finally(() => setVatRateLoading(false));
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRegion, customer?.country]);
 
   // ── Missive Integration ──────────────────────────────────────────
@@ -383,7 +402,12 @@ export default function SidebarAppV3() {
         }
         currentConversationIdsRef.current = idsKey;
         setScreen({ type: 'loading' });
-        Missive.fetchConversations(ids).then(handleConversations);
+        const seq = ++conversationSeqRef.current;
+        Missive.fetchConversations(ids).then((conversations: any[]) => {
+          // A newer conversation was selected while this fetch was in flight
+          if (conversationSeqRef.current !== seq) return;
+          handleConversations(conversations);
+        });
       },
       { retroactive: true }
     );
@@ -406,9 +430,14 @@ export default function SidebarAppV3() {
 
     // Fetch regions
     setRegionsLoading(true);
+    // Ticket for this lookup — a later selection invalidates it, so a slow
+    // response can never patch the card of the customer that replaced it.
+    const seq = ++customerLookupSeqRef.current;
+    const isStale = () => customerLookupSeqRef.current !== seq;
     fetch(`/api/wc/customers?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((data) => {
+        if (isStale()) return;
         const regs = data.regions || {};
         setRegions(regs);
 
@@ -511,8 +540,15 @@ export default function SidebarAppV3() {
           setScreen({ type: 'products' });
         }
       })
-      .catch(() => setRegions({}))
-      .finally(() => setRegionsLoading(false));
+      .catch(() => {
+        if (isStale()) return;
+        setRegions({});
+      })
+      .finally(() => {
+        // Don't let a superseded lookup clear the spinner of the current one
+        if (isStale()) return;
+        setRegionsLoading(false);
+      });
   }, []);
 
   // ── Customer Search ──────────────────────────────────────────────
