@@ -56,6 +56,19 @@ interface SubmitResult {
   payment_url?: string;
 }
 
+/** A separate delivery address — maps 1:1 onto WooCommerce's order `shipping` object. */
+interface ShippingAddress {
+  firstName: string;
+  lastName: string;
+  company: string;
+  country: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  postcode: string;
+}
+
 interface CustomerSearchResult {
   email: string;
   first_name: string;
@@ -65,6 +78,11 @@ interface CustomerSearchResult {
 }
 
 // ── Constants ────────────────────────────────────────────────────────
+
+const EMPTY_SHIPPING: ShippingAddress = {
+  firstName: '', lastName: '', company: '', country: '',
+  address1: '', address2: '', city: '', state: '', postcode: '',
+};
 
 const REGION_ORDER = ['DE', 'UK', 'FR'];
 const REGION_NAMES: Record<string, string> = { DE: 'Germany', UK: 'United Kingdom', FR: 'France' };
@@ -81,6 +99,14 @@ const COUNTRY_NAMES: Record<string, string> = {
   RO: 'Romania', BG: 'Bulgaria', HR: 'Croatia', SK: 'Slovakia', SI: 'Slovenia',
   EE: 'Estonia', LV: 'Latvia', LT: 'Lithuania', GR: 'Greece', CY: 'Cyprus', MT: 'Malta',
 };
+/**
+ * Country codes offered for a separate delivery address, alphabetical by name.
+ * Deliberately the full COUNTRY_NAMES list rather than the VAT `countryOptions` — the delivery
+ * country must never feed the tax lookup (see the delivery-address block in the checkout form).
+ */
+const DELIVERY_COUNTRIES: string[] = Object.keys(COUNTRY_NAMES).sort((a, b) =>
+  COUNTRY_NAMES[a].localeCompare(COUNTRY_NAMES[b])
+);
 /** Reverse lookup: full country name → ISO code (e.g. "France" → "FR") */
 const COUNTRY_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
   Object.entries(COUNTRY_NAMES).map(([code, name]) => [name, code])
@@ -246,6 +272,12 @@ export default function SidebarAppV3() {
   const designFileInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<'bacs' | 'payment_link'>('bacs');
   const [partialPaymentPercent, setPartialPaymentPercent] = useState<string>('');
+  // Delivery address (orders only) — WooCommerce's own `shipping` address object, i.e. the same
+  // thing the storefront's "Ship to a different address?" checkbox fills in. Left off, the order
+  // keeps mirroring the billing address exactly as before.
+  const [shipDifferent, setShipDifferent] = useState(false);
+  const [ship, setShip] = useState<ShippingAddress>({ ...EMPTY_SHIPPING });
+  const [shipError, setShipError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
 
@@ -413,6 +445,22 @@ export default function SidebarAppV3() {
     );
   }, []);
 
+  /**
+   * Update one delivery-address field. Editing anything clears the validation message, so a
+   * "needs a street address" warning can't sit under a form the agent has already completed.
+   */
+  const updateShip = useCallback((patch: Partial<ShippingAddress>) => {
+    setShip((p) => ({ ...p, ...patch }));
+    setShipError(null);
+  }, []);
+
+  /** Clear the separate delivery address — a new customer must never inherit the previous one. */
+  const resetDeliveryAddress = useCallback(() => {
+    setShipDifferent(false);
+    setShip({ ...EMPTY_SHIPPING });
+    setShipError(null);
+  }, []);
+
   // ── Customer Lookup ──────────────────────────────────────────────
 
   const selectCustomerByEmail = useCallback((email: string, name: string, extra?: { company?: string; phone?: string; vatNumber?: string; address1?: string; address2?: string; city?: string; postcode?: string }) => {
@@ -427,6 +475,7 @@ export default function SidebarAppV3() {
     setScreen({ type: 'main' });
     setCustomerType('individual');
     setOrgName('');
+    resetDeliveryAddress();
 
     // Fetch regions
     setRegionsLoading(true);
@@ -726,6 +775,23 @@ export default function SidebarAppV3() {
   const handleSubmit = async (openPdf = false) => {
     if (!selectedRegion || !customer || cart.length === 0) return;
 
+    // A half-filled delivery address is worse than none — it would reach WooCommerce as the
+    // shipping address and the parcel would have nowhere to go.
+    const useShipping = mode === 'order' && shipDifferent;
+    if (useShipping) {
+      const missing = [
+        !ship.address1.trim() && 'street address',
+        !ship.postcode.trim() && 'postcode',
+        !ship.city.trim() && 'city',
+        !ship.country.trim() && 'country',
+      ].filter(Boolean) as string[];
+      if (missing.length > 0) {
+        setShipError(`Delivery address needs a ${missing.join(', ')}.`);
+        return;
+      }
+      setShipError(null);
+    }
+
     setSubmitting(true);
     setSubmitResult(null);
 
@@ -905,6 +971,20 @@ export default function SidebarAppV3() {
             address2: customer.address2 || '',
             city: customer.city || '',
             postcode: customer.postcode || '',
+            ship_to_different_address: useShipping,
+            shipping: useShipping
+              ? {
+                  first_name: ship.firstName.trim(),
+                  last_name: ship.lastName.trim(),
+                  company: ship.company.trim(),
+                  country: normalizeCountryCode(ship.country.trim()),
+                  address_1: ship.address1.trim(),
+                  address_2: ship.address2.trim(),
+                  city: ship.city.trim(),
+                  state: ship.state.trim(),
+                  postcode: ship.postcode.trim(),
+                }
+              : null,
             payment_method: paymentMethod,
             distributor_discount_percent: distPct || null,
             partial_payment_percent: partialPaymentPercent !== '' ? Number(partialPaymentPercent) : null,
@@ -937,6 +1017,7 @@ export default function SidebarAppV3() {
           setSubtotalOverride(null);
           setPartialPaymentPercent('');
           setTotalOverride(null);
+          resetDeliveryAddress();
         } else {
           setSubmitResult({ success: false, error: data.error || 'Failed to create order' });
         }
@@ -2158,6 +2239,11 @@ export default function SidebarAppV3() {
           />
 
           {/* Postal address fields */}
+          {mode === 'order' && (
+            <label className="text-[11px] font-[Jost,sans-serif] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+              Billing address
+            </label>
+          )}
           <input
             type="text"
             value={customer?.address1 || ''}
@@ -2186,6 +2272,108 @@ export default function SidebarAppV3() {
             placeholder="City"
             className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
           />
+
+          {/* Delivery address — orders only. Unchecked, WooCommerce receives the billing
+              address as the shipping address, exactly as it always has. */}
+          {mode === 'order' && (
+            <div className="mb-2">
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={shipDifferent}
+                  onChange={(e) => {
+                    setShipDifferent(e.target.checked);
+                    setShipError(null);
+                  }}
+                  className="w-3.5 h-3.5 accent-[#10c99e]"
+                />
+                <span className="text-[12px] font-[Jost,sans-serif] font-semibold text-gray-700">
+                  Deliver to a different address
+                </span>
+              </label>
+
+              {shipDifferent && (
+                <div className="border border-gray-200 rounded-lg p-3">
+                  <label className="text-[11px] font-[Jost,sans-serif] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                    Delivery address
+                  </label>
+                  <div className="flex gap-1.5 mb-2">
+                    <input
+                      type="text"
+                      value={ship.firstName}
+                      onChange={(e) => updateShip({ firstName: e.target.value })}
+                      placeholder="First name"
+                      className="w-1/2 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
+                    />
+                    <input
+                      type="text"
+                      value={ship.lastName}
+                      onChange={(e) => updateShip({ lastName: e.target.value })}
+                      placeholder="Last name"
+                      className="w-1/2 px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={ship.company}
+                    onChange={(e) => updateShip({ company: e.target.value })}
+                    placeholder="Company (optional)"
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+                  />
+                  {/* Built from COUNTRY_NAMES, NOT countryOptions: countryOptions drives the VAT
+                      lookup and must stay tied to the billing country only. */}
+                  <select
+                    value={ship.country}
+                    onChange={(e) => updateShip({ country: e.target.value })}
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+                  >
+                    <option value="">Select delivery country...</option>
+                    {DELIVERY_COUNTRIES.map((code) => (
+                      <option key={code} value={code}>{COUNTRY_NAMES[code]}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={ship.address1}
+                    onChange={(e) => updateShip({ address1: e.target.value })}
+                    placeholder="Street address"
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+                  />
+                  <input
+                    type="text"
+                    value={ship.address2}
+                    onChange={(e) => updateShip({ address2: e.target.value })}
+                    placeholder="Address line 2 (optional)"
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+                  />
+                  <input
+                    type="text"
+                    value={ship.postcode}
+                    onChange={(e) => updateShip({ postcode: e.target.value })}
+                    placeholder="Postcode"
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+                  />
+                  <input
+                    type="text"
+                    value={ship.city}
+                    onChange={(e) => updateShip({ city: e.target.value })}
+                    placeholder="City"
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
+                  />
+                  <input
+                    type="text"
+                    value={ship.state}
+                    onChange={(e) => updateShip({ state: e.target.value })}
+                    placeholder="State / Province (optional)"
+                    className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors"
+                  />
+                  {shipError && (
+                    <div className="mt-2 text-[11px] text-red-500">{shipError}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Payment method — only for orders */}
           {mode === 'order' && (

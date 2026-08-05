@@ -11,7 +11,9 @@ function json(data: unknown, status = 200) {
 /**
  * POST /api/wc/orders
  *   → Create a WooCommerce order on the selected region
- *   Body: { region, customer_email, customer_name, company, line_items, total, currency, notes, status }
+ *   Body: { region, customer_email, customer_name, company, line_items, total, currency, notes, status,
+ *           ship_to_different_address?, shipping?: { first_name, last_name, company, country,
+ *           address_1, address_2, city, state, postcode, phone } }
  */
 export const POST: APIRoute = async ({ request, locals }) => {
   const runtime = (locals as any).runtime;
@@ -23,7 +25,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, address1, address2, city, postcode, payment_method, partial_payment_percent, distributor_discount_percent, design_requested, design_message, design_files } = body;
+  const { region, customer_email, customer_name, company, customer_type, line_items, notes, status: orderStatus, phone, vat_number, country, address1, address2, city, state, postcode, payment_method, partial_payment_percent, distributor_discount_percent, design_requested, design_message, design_files, ship_to_different_address, shipping: shippingOverride } = body;
 
   if (!region || !customer_email || !line_items) {
     return json({ error: 'region, customer_email, and line_items are required' }, 400);
@@ -128,6 +130,41 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return lineItem;
   });
 
+  // Delivery address — WooCommerce's own `shipping` address object, i.e. exactly what the
+  // storefront's "Ship to a different address?" checkbox writes. When the agent doesn't ask for
+  // a separate one we keep mirroring billing, byte-for-byte as before.
+  //
+  // Safe with respect to VAT: the tax location comes from `woocommerce_tax_based_on`, which is
+  // `base` on UK and `billing` on DE/FR (verified 2026-08-05) — never `shipping` — so a delivery
+  // address in another country cannot move the rate the panel quoted.
+  const shipToDifferent = Boolean(ship_to_different_address) && Boolean(shippingOverride?.address_1);
+  const shippingAddress = shipToDifferent
+    ? {
+        first_name: shippingOverride.first_name || firstName,
+        last_name: shippingOverride.last_name || lastName,
+        company: shippingOverride.company || '',
+        country: shippingOverride.country || country || '',
+        address_1: shippingOverride.address_1 || '',
+        address_2: shippingOverride.address_2 || '',
+        city: shippingOverride.city || '',
+        state: shippingOverride.state || '',
+        postcode: shippingOverride.postcode || '',
+        phone: shippingOverride.phone || phone || '',
+      }
+    : {
+        first_name: firstName,
+        last_name: lastName,
+        company: company || '',
+        country: country || '',
+        address_1: address1 || '',
+        address_2: address2 || '',
+        city: city || '',
+        // `state` only when the caller actually sent one, so an order without a separate
+        // delivery address produces a payload byte-identical to the pre-change one.
+        ...(state ? { state } : {}),
+        postcode: postcode || '',
+      };
+
   // Build WC order payload
   const isPaymentLink = payment_method === 'payment_link';
   const bacsTitle: Record<string, string> = {
@@ -150,18 +187,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       address_1: address1 || '',
       address_2: address2 || '',
       city: city || '',
+      // Same rule as the shipping mirror above — omitted unless supplied.
+      ...(state ? { state } : {}),
       postcode: postcode || '',
     },
-    shipping: {
-      first_name: firstName,
-      last_name: lastName,
-      company: company || '',
-      country: country || '',
-      address_1: address1 || '',
-      address_2: address2 || '',
-      city: city || '',
-      postcode: postcode || '',
-    },
+    shipping: shippingAddress,
     line_items: wcLineItems,
     set_paid: false,
     meta_data: [] as Array<{ key: string; value: string }>,
@@ -212,6 +242,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // Record the VAT-exemption decision for auditability
   if (vatExempt) {
     orderPayload.meta_data.push({ key: '_vat_exempt', value: 'yes' });
+  }
+
+  // Mark orders where the agent entered a separate delivery address
+  if (shipToDifferent) {
+    orderPayload.meta_data.push({ key: '_crm_ship_to_different_address', value: 'yes' });
   }
 
   // Add customer type as order meta
