@@ -4,6 +4,20 @@ import SidebarConfigurator, { type CartItemData } from './SidebarConfigurator';
 
 declare const Missive: any;
 
+// ── Build identity (see astro.config.mjs + /api/version) ─────────────
+// `typeof` rather than a bare read: if the define ever fails to apply the panel must still
+// boot, just without the update check.
+const BUILD_ID = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev';
+const BUILD_TIME = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : '';
+const RELOAD_MARKER = 'hercules_crm_reloaded_for';
+
+/**
+ * True while the agent has work in the panel that a reload would discard. Module scope
+ * because <UpdateBanner /> is a leaf with no access to the app's state; the main component
+ * refreshes it on every render.
+ */
+const panelBusy = { current: false };
+
 // ── Types ────────────────────────────────────────────────────────────
 
 interface Contact {
@@ -226,6 +240,14 @@ export default function SidebarAppV3() {
   // checks its ticket against the ref and bails out if it is no longer current.
   const conversationSeqRef = useRef(0);
   const customerLookupSeqRef = useRef(0);
+  /**
+   * Email of the customer currently on the card, updated synchronously the moment one is
+   * selected. Every async write that lands *after* an await must check it: a save or a
+   * submit that started for one customer must never patch the card, the region cache or the
+   * result banner of whoever replaced them. The sequence tickets above cover the lookup;
+   * this covers everything else.
+   */
+  const currentCustomerEmailRef = useRef<string | null>(null);
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editCompany, setEditCompany] = useState('');
@@ -464,6 +486,14 @@ export default function SidebarAppV3() {
   // ── Customer Lookup ──────────────────────────────────────────────
 
   const selectCustomerByEmail = useCallback((email: string, name: string, extra?: { company?: string; phone?: string; vatNumber?: string; address1?: string; address2?: string; city?: string; postcode?: string }) => {
+    // Claim the card for this customer before anything async can start.
+    currentCustomerEmailRef.current = email;
+    // An edit form left open across a switch is worse than a stale card: its fields still
+    // hold the previous customer's values, and saving would write them onto this one's
+    // WooCommerce record.
+    setEditingCustomer(false);
+    editingCustomerRef.current = false;
+    setEditingNameInline(false);
     setCustomer({ email, name, company: extra?.company || '', phone: extra?.phone || '', vatNumber: extra?.vatNumber || '', customerType: '', country: '', address1: extra?.address1 || '', address2: extra?.address2 || '', city: extra?.city || '', postcode: extra?.postcode || '', notes: '', ordersCount: 0, totalSpent: '0.00' });
     setCustomerSearchMode(false);
     setSearchQuery('');
@@ -775,6 +805,13 @@ export default function SidebarAppV3() {
   const handleSubmit = async (openPdf = false) => {
     if (!selectedRegion || !customer || cart.length === 0) return;
 
+    // Everything sent below is captured from `customer` now, so the quote/order itself is
+    // always built for the person the agent was looking at. What must not leak across a
+    // conversation switch is the panel state written afterwards — above all the region
+    // cache, which carries WooCommerce customer ids.
+    const targetEmail = customer.email;
+    const stale = () => currentCustomerEmailRef.current !== targetEmail;
+
     // A half-filled delivery address is worse than none — it would reach WooCommerce as the
     // shipping address and the parcel would have nowhere to go.
     const useShipping = mode === 'order' && shipDifferent;
@@ -925,18 +962,22 @@ export default function SidebarAppV3() {
           });
           const createData = await createResp.json();
           if (createResp.ok && !createData.error) {
-            setRegions((prev) => ({
-              ...prev,
-              [selectedRegion]: {
-                found: true,
-                first_name: createData.first_name || nameParts[0] || '',
-                last_name: createData.last_name || '',
-                company: createData.company || '',
-                wc_customer_id: createData.wc_customer_id,
-              },
-            }));
+            // A wc_customer_id written onto the wrong customer's region cache would send the
+            // *next* quote to that id — the worst outcome of this whole bug class.
+            if (!stale()) {
+              setRegions((prev) => ({
+                ...prev,
+                [selectedRegion]: {
+                  found: true,
+                  first_name: createData.first_name || nameParts[0] || '',
+                  last_name: createData.last_name || '',
+                  company: createData.company || '',
+                  wc_customer_id: createData.wc_customer_id,
+                },
+              }));
+            }
           } else if (!createData.already_exists) {
-            setCreateRegionError(createData.error || 'Failed to create customer');
+            if (!stale()) setCreateRegionError(createData.error || 'Failed to create customer');
             setSubmitting(false);
             setCreatingRegionUser(false);
             return;
@@ -995,6 +1036,11 @@ export default function SidebarAppV3() {
         });
         const data = await resp.json();
         if (resp.ok && data.success) {
+          // Always clear the cart that was just ordered — it is keyed by the captured email.
+          clearCartKV(targetEmail, selectedRegion);
+          // But a success banner and a cart reset belong to the customer this was created
+          // for. Showing them on somebody else's card would read as "their quote went out".
+          if (stale()) return;
           setSubmitResult({
             success: true,
             order_id: data.order_id,
@@ -1003,8 +1049,6 @@ export default function SidebarAppV3() {
             order_status: data.order_status,
             payment_url: data.payment_url,
           });
-          // Clear persisted cart on successful submit
-          clearCartKV(customer.email, selectedRegion);
           // Reset to initial state (keep customer & region, clear cart/form)
           setCart([]);
           setQuoteName('');
@@ -1018,7 +1062,7 @@ export default function SidebarAppV3() {
           setPartialPaymentPercent('');
           setTotalOverride(null);
           resetDeliveryAddress();
-        } else {
+        } else if (!stale()) {
           setSubmitResult({ success: false, error: data.error || 'Failed to create order' });
         }
       } else {
@@ -1054,6 +1098,14 @@ export default function SidebarAppV3() {
         });
         const data = await resp.json();
         if (resp.ok && data.success) {
+          // Keyed by the captured email, so this is always the right cart to clear.
+          clearCartKV(targetEmail, selectedRegion);
+          if (openPdf && data.pdf_url) {
+            // The agent asked for this PDF — still open it even if they have moved on.
+            window.open(data.pdf_url, '_blank');
+          }
+          // The banner and the form reset, though, belong to the customer it was created for.
+          if (stale()) return;
           setSubmitResult({
             success: true,
             quote_id: data.quote_id,
@@ -1063,11 +1115,6 @@ export default function SidebarAppV3() {
             email_sent: data.email_sent,
             site_error: data.site_error,
           });
-          // Clear persisted cart on successful submit
-          clearCartKV(customer.email, selectedRegion);
-          if (openPdf && data.pdf_url) {
-            window.open(data.pdf_url, '_blank');
-          }
           // Reset to initial state (keep customer & region, clear cart/form)
           setCart([]);
           setQuoteName('');
@@ -1080,12 +1127,12 @@ export default function SidebarAppV3() {
           setSubtotalOverride(null);
 
           setTotalOverride(null);
-        } else {
+        } else if (!stale()) {
           setSubmitResult({ success: false, error: data.error || 'Failed to create quote' });
         }
       }
     } catch (err: any) {
-      setSubmitResult({ success: false, error: err.message || 'Network error' });
+      if (!stale()) setSubmitResult({ success: false, error: err.message || 'Network error' });
     } finally {
       setSubmitting(false);
     }
@@ -1149,6 +1196,10 @@ export default function SidebarAppV3() {
 
   const saveCustomerEdit = async () => {
     if (!customer) return;
+    // The PUTs below go to three stores and take seconds; a conversation switch inside that
+    // window must not let the response patch the customer who replaced this one.
+    const targetEmail = customer.email;
+    const stale = () => currentCustomerEmailRef.current !== targetEmail;
 
     // Update all regions where customer exists
     const regionsToUpdate = REGION_ORDER.filter(
@@ -1207,6 +1258,10 @@ export default function SidebarAppV3() {
           return { code, resp };
         })
       );
+
+      // The save itself still went through — only the on-screen update is dropped, because
+      // the card now belongs to somebody else.
+      if (stale()) return;
 
       // Use first successful response for state update
       for (const { code, resp } of results) {
@@ -1345,6 +1400,8 @@ export default function SidebarAppV3() {
 
   const saveInlineNameEdit = async () => {
     if (!customer) return;
+    const targetEmail = customer.email;
+    const stale = () => currentCustomerEmailRef.current !== targetEmail;
 
     // Use selectedRegion, or fall back to first region with a WC customer
     const effectiveRegion = selectedRegion
@@ -1383,23 +1440,38 @@ export default function SidebarAppV3() {
           }),
         })
       ));
-      setCustomer((prev) => prev ? { ...prev, name: newName } : prev);
-      // Update regions cache
-      setRegions((prev) => {
-        const updated = { ...prev };
-        for (const code of regionsToUpdate) {
-          if (updated[code]) {
-            updated[code] = { ...updated[code], first_name: inlineFirstName.trim(), last_name: inlineLastName.trim() };
+      // Saved to WooCommerce either way; just don't rename whoever is on the card now.
+      // Not an early return — the spinner state below has to clear regardless.
+      if (!stale()) {
+        setCustomer((prev) => prev ? { ...prev, name: newName } : prev);
+        // Update regions cache
+        setRegions((prev) => {
+          const updated = { ...prev };
+          for (const code of regionsToUpdate) {
+            if (updated[code]) {
+              updated[code] = { ...updated[code], first_name: inlineFirstName.trim(), last_name: inlineLastName.trim() };
+            }
           }
-        }
-        return updated;
-      });
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Failed to save name:', err);
     }
     setEditingNameInline(false);
     setSavingNameInline(false);
   };
+
+  // Tells <UpdateBanner /> whether reloading onto a newer build would cost the agent anything.
+  // A cart, an open configurator, an edit form or an in-flight submit all count as work; a
+  // freshly detected customer does not, because the panel re-detects it on load.
+  panelBusy.current =
+    cart.length > 0 ||
+    editingCustomer ||
+    editingNameInline ||
+    submitting ||
+    savingCustomer ||
+    screen.type === 'configurator';
 
   const CustomerSummaryBar = () => {
     if (!customer) return null;
@@ -2613,12 +2685,94 @@ export default function SidebarAppV3() {
 
 // ── Sub-components ───────────────────────────────────────────────────
 
+/**
+ * Notices when the panel is running a superseded deploy.
+ *
+ * Missive keeps an integration iframe alive for the entire app session, so a panel opened
+ * before a deploy goes on running the old bundle until the agent quits Missive — which is
+ * how the 2026-08-05 stale-customer fix was live for a day while an agent still hit the bug.
+ * The panel now checks its own build against /api/version and reloads itself; the reload is
+ * silent while nothing is in progress, and a banner otherwise so no work is thrown away.
+ */
+function UpdateBanner() {
+  const [newBuild, setNewBuild] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stopped = false;
+
+    const check = async () => {
+      try {
+        const resp = await fetch('/api/version', { cache: 'no-store' });
+        if (!resp.ok || stopped) return;
+        const data = await resp.json();
+        if (stopped || !data.buildId || data.buildId === BUILD_ID) return;
+
+        // Reload at most once per new build. Without this, a build id that can never match
+        // (a broken deploy, a define that didn't apply) would put the panel in a reload loop.
+        let alreadyTried = false;
+        try {
+          alreadyTried = sessionStorage.getItem(RELOAD_MARKER) === data.buildId;
+          if (!alreadyTried) sessionStorage.setItem(RELOAD_MARKER, data.buildId);
+        } catch {
+          // sessionStorage unavailable — fall back to the banner rather than risk a loop
+          alreadyTried = true;
+        }
+
+        if (!alreadyTried && !panelBusy.current) {
+          window.location.reload();
+          return;
+        }
+        setNewBuild(data.buildId);
+      } catch {
+        // Offline or the deploy is mid-flight — the next check picks it up
+      }
+    };
+
+    check();
+    const timer = setInterval(check, 10 * 60 * 1000);
+    const onWake = () => { if (!document.hidden) check(); };
+    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onWake);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+  }, []);
+
+  if (!newBuild) return null;
+
+  return (
+    <div className="mb-3 px-2.5 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+      <div className="flex-1 text-[11px] text-amber-800">
+        This panel is running an older version.
+      </div>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-2.5 py-1 text-[11px] font-[Jost,sans-serif] font-semibold text-white bg-[#10c99e] rounded-md hover:bg-[#0db88e] transition-colors"
+      >
+        Reload
+      </button>
+    </div>
+  );
+}
+
 function Header({ mode, onModeChange }: { mode: 'quote' | 'order'; onModeChange: (m: 'quote' | 'order') => void }) {
   return (
+    <>
+    <UpdateBanner />
     <div className="flex items-center justify-between mb-4">
+      <div>
       <h1 className="font-[Jost,sans-serif] text-[15px] font-semibold text-[#253461]">
         Create {mode === 'quote' ? 'Quote' : 'Order'}
       </h1>
+      {/* Which build this panel is actually running — without it, a live fix and a stale
+          panel look identical from the outside. */}
+      <div className="text-[9px] text-gray-300 leading-none" title={BUILD_TIME ? `built ${BUILD_TIME}` : undefined}>
+        build {BUILD_ID}
+      </div>
+      </div>
       <div className="flex items-center bg-gray-100 rounded-full p-0.5">
         <button
           onClick={() => onModeChange('quote')}
@@ -2638,6 +2792,7 @@ function Header({ mode, onModeChange }: { mode: 'quote' | 'order'; onModeChange:
         </button>
       </div>
     </div>
+    </>
   );
 }
 
