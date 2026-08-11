@@ -115,12 +115,28 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 /**
  * Country codes offered for a separate delivery address, alphabetical by name.
- * Deliberately the full COUNTRY_NAMES list rather than the VAT `countryOptions` — the delivery
+ * Deliberately built from COUNTRY_NAMES rather than the VAT `countryOptions` — the delivery
  * country must never feed the tax lookup (see the delivery-address block in the checkout form).
  */
-const DELIVERY_COUNTRIES: string[] = Object.keys(COUNTRY_NAMES).sort((a, b) =>
+const ALL_DELIVERY_COUNTRIES: string[] = Object.keys(COUNTRY_NAMES).sort((a, b) =>
   COUNTRY_NAMES[a].localeCompare(COUNTRY_NAMES[b])
 );
+/** Not delivered to from the DE and FR stores (client decision, 2026-08-11). */
+const DELIVERY_EXCLUDED = ['NO', 'CH', 'GB'];
+/**
+ * Delivery countries per region. UK ships domestically only; DE and FR keep the rest of the
+ * list minus DELIVERY_EXCLUDED. Restricting the delivery address does NOT touch the billing
+ * country — that still comes from the store's tax rates and drives VAT.
+ */
+const DELIVERY_COUNTRIES_BY_REGION: Record<string, string[]> = {
+  UK: ['GB'],
+  DE: ALL_DELIVERY_COUNTRIES.filter((c) => !DELIVERY_EXCLUDED.includes(c)),
+  FR: ALL_DELIVERY_COUNTRIES.filter((c) => !DELIVERY_EXCLUDED.includes(c)),
+};
+/** Delivery countries for a region; an unknown/absent region falls back to the restricted list. */
+function deliveryCountriesFor(region: string | null): string[] {
+  return (region && DELIVERY_COUNTRIES_BY_REGION[region]) || DELIVERY_COUNTRIES_BY_REGION.DE;
+}
 /** Reverse lookup: full country name → ISO code (e.g. "France" → "FR") */
 const COUNTRY_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
   Object.entries(COUNTRY_NAMES).map(([code, name]) => [name, code])
@@ -725,6 +741,13 @@ export default function SidebarAppV3() {
     setSelectedRegion(code);
     setCreateRegionError(null);
 
+    // Delivery countries are region-specific, so a country picked for the previous region may
+    // not be offered by this one (e.g. Spain on DE → UK). Drop it rather than leave a value
+    // selected that is no longer in the list; the rest of the address is kept.
+    setShip((prev) => (prev.country && !deliveryCountriesFor(code).includes(prev.country)
+      ? { ...prev, country: '' }
+      : prev));
+
     // Sync all customer fields from the selected region's WC data
     const match = regions[code];
     const regionCountry = normalizeCountryCode(match?.country || '') || REGION_DEFAULT_COUNTRY[code] || '';
@@ -824,6 +847,13 @@ export default function SidebarAppV3() {
       ].filter(Boolean) as string[];
       if (missing.length > 0) {
         setShipError(`Delivery address needs a ${missing.join(', ')}.`);
+        return;
+      }
+      // The select can only offer allowed countries, but state can outlive a region switch —
+      // never let a country this store does not deliver to reach WooCommerce.
+      const shipCountry = ship.country.trim();
+      if (!deliveryCountriesFor(selectedRegion).includes(shipCountry)) {
+        setShipError(`The ${selectedRegion} store does not deliver to ${COUNTRY_NAMES[shipCountry] || shipCountry}.`);
         return;
       }
       setShipError(null);
@@ -2400,7 +2430,7 @@ export default function SidebarAppV3() {
                     className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#10c99e] transition-colors mb-2"
                   >
                     <option value="">Select delivery country...</option>
-                    {DELIVERY_COUNTRIES.map((code) => (
+                    {deliveryCountriesFor(selectedRegion).map((code) => (
                       <option key={code} value={code}>{COUNTRY_NAMES[code]}</option>
                     ))}
                   </select>
